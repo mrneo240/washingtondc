@@ -2,7 +2,7 @@
  *
  *
  *    WashingtonDC Dreamcast Emulator
- *    Copyright (C) 2017 snickerbockers
+ *    Copyright (C) 2017, 2018 snickerbockers
  *
  *    This program is free software: you can redistribute it and/or modify
  *    it under the terms of the GNU General Public License as published by
@@ -33,7 +33,7 @@
 struct Sh4;
 
 // it's 'cause 1998 is the year the Dreamcast came out in Japan
-#define SERIAL_PORT_NO 1998
+#define SERIAL_PORT_NO "1998"
 
 void serial_server_init(struct Sh4 *cpu);
 void serial_server_cleanup(void);
