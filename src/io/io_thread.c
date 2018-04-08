@@ -2,7 +2,7 @@
  *
  *
  *    WashingtonDC Dreamcast Emulator
- *    Copyright (C) 2017 snickerbockers
+ *    Copyright (C) 2017, 2018 snickerbockers
  *
  *    This program is free software: you can redistribute it and/or modify
  *    it under the terms of the GNU General Public License as published by
@@ -25,6 +25,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
+#include <unistd.h>
+#include <sys/eventfd.h>
 
 #include <event2/event.h>
 #include <event2/bufferevent.h>
@@ -32,6 +34,7 @@
 #include <event2/buffer.h>
 #include <event2/thread.h>
 
+#include "async_io.h"
 #include "serial_server.h"
 #include "dreamcast.h"
 #include "cmd_tcp.h"
@@ -58,6 +61,9 @@ static pthread_cond_t io_thread_create_condition = PTHREAD_COND_INITIALIZER;
 
 static void *io_main(void *arg);
 static void io_work_callback(evutil_socket_t fd, short ev, void *arg);
+static void io_on_kick(int fd);
+
+static int evfd = -1;
 
 void io_thread_launch(void) {
     int err_code;
@@ -85,6 +91,8 @@ static void *io_main(void *arg) {
     if (pthread_mutex_lock(&io_thread_create_mutex) != 0)
         abort(); // TODO: error handling
 
+    async_io_init();
+
     evthread_use_pthreads();
 
     io_thread_event_base = event_base_new();
@@ -95,6 +103,10 @@ static void *io_main(void *arg) {
                                      io_work_callback, NULL);
     if (!io_thread_work_event)
         errx(1, "event_new returned NULL!");
+
+    evfd = eventfd(0, 0);
+    async_io_set_fd(ASYNC_IO_FD_INTERNAL, evfd);
+    async_io_set_read_callback(ASYNC_IO_FD_INTERNAL, io_on_kick);
 
     cmd_tcp_init();
 
@@ -110,15 +122,22 @@ static void *io_main(void *arg) {
     if (pthread_mutex_unlock(&io_thread_create_mutex) != 0)
         abort(); // TODO: error handling
 
-    int const evflags = EVLOOP_NO_EXIT_ON_EMPTY;
-    while (event_base_loop(io_thread_event_base, evflags) >= 0) {
-        if (!dc_is_running())
-            break;
+    /* int const evflags = EVLOOP_NO_EXIT_ON_EMPTY; */
+    /* while (event_base_loop(io_thread_event_base, evflags) >= 0) { */
+    /*     if (!dc_is_running()) */
+    /*         break; */
 
+    /*     serial_server_run(); */
+    /* } */
+
+    while (dc_is_running()) {
+        async_io_run();
         serial_server_run();
     }
 
-    LOG_INFO("io thread finished\n");
+    LOG_WARN("io thread finished\n");
+
+    close(evfd);
 
     event_free(io_thread_work_event);
 
@@ -137,7 +156,15 @@ static void *io_main(void *arg) {
 }
 
 void io_thread_kick(void) {
-    event_active(io_thread_work_event, 0, 0);
+    uint64_t val = 1;
+
+    ssize_t n_bytes = write(evfd, &val, sizeof(val));
+    if (n_bytes != sizeof(val)) {
+        LOG_WARN("%s - failed to read %u bytes (write returned %d)\n",
+                 __func__, (unsigned)sizeof(val), (int)n_bytes);
+    }
+
+    /* event_active(io_thread_work_event, 0, 0); */
 }
 
 static void io_work_callback(evutil_socket_t fd, short ev, void *arg) {
@@ -145,4 +172,21 @@ static void io_work_callback(evutil_socket_t fd, short ev, void *arg) {
         event_base_loopbreak(io_thread_event_base);
 
     serial_server_run();
+}
+
+static void io_on_kick(int fd) {
+    uint64_t val;
+
+    printf("kick received!\n");
+    ssize_t n_bytes = read(fd, &val, sizeof(val));
+
+    if (n_bytes != sizeof(val)) {
+        LOG_WARN("%s - failed to read %u bytes (read returned %d)\n",
+                 __func__, (unsigned)sizeof(val), (int)n_bytes);
+    }
+
+    /* if (!dc_is_running()) */
+    /*     event_base_loopbreak(io_thread_event_base); */
+
+    /* serial_server_run(); */
 }
