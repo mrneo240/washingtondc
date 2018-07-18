@@ -188,10 +188,18 @@ uint8_t gdrom_reg_read_8(addr32_t addr, void *ctxt) {
     case ATA_REG_RW_BYTE_CNT_LO:
         buf = gdrom_ctxt->data_byte_count & 0xff;
         GDROM_TRACE("read 0x%02x from byte_count_low\n", (unsigned)buf);
+        if (gdrom_ctxt->data_byte_count > UINT16_MAX) {
+            error_set_feature("reading more than 64 kilobytes from GD-ROM");
+            RAISE_ERROR(ERROR_UNIMPLEMENTED);
+        }
         return buf;
     case ATA_REG_RW_BYTE_CNT_HI:
         buf = (gdrom_ctxt->data_byte_count & 0xff00) >> 8;
         GDROM_TRACE("read 0x%02x from byte_count_high\n", (unsigned)buf);
+        if (gdrom_ctxt->data_byte_count > UINT16_MAX) {
+            error_set_feature("reading more than 64 kilobytes from GD-ROM");
+            RAISE_ERROR(ERROR_UNIMPLEMENTED);
+        }
         return buf;
         break;
     case ATA_REG_RW_DRIVE_SEL:
