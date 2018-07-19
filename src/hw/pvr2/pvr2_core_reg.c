@@ -219,6 +219,12 @@ ta_yuv_tex_base_read(struct mmio_region_pvr2_core_reg *region,
                      unsigned idx, void *ctxt);
 static void ta_yuv_tex_base_write(struct mmio_region_pvr2_core_reg *region,
                                   unsigned idx, uint32_t val, void *ctxt);
+static uint32_t
+list_cont_mmio_read(struct mmio_region_pvr2_core_reg *region,
+                    unsigned idx, void *ctxt);
+static void
+list_cont_mmio_write(struct mmio_region_pvr2_core_reg *region,
+                     unsigned idx, uint32_t val, void *ctxt);
 
 void pvr2_core_reg_init(void) {
     init_mmio_region_pvr2_core_reg(&mmio_region_pvr2_core_reg, (void*)reg_backing);
@@ -530,6 +536,11 @@ void pvr2_core_reg_init(void) {
                                         "TA_YUV_TEX_CTRL", 0x5f814c,
                                         ta_yuv_tex_ctrl_read,
                                         ta_yuv_tex_ctrl_write,
+                                        NULL);
+    mmio_region_pvr2_core_reg_init_cell(&mmio_region_pvr2_core_reg,
+                                        "LIST_CONT", 0x5f8160,
+                                        list_cont_mmio_read,
+                                        list_cont_mmio_write,
                                         NULL);
     mmio_region_pvr2_core_reg_init_cell(&mmio_region_pvr2_core_reg,
                                         "TA_NEXT_OPB_INIT", 0x5f8164,
@@ -956,6 +967,21 @@ static void ta_yuv_tex_base_write(struct mmio_region_pvr2_core_reg *region,
     LOG_DBG("Writing 0x%08x to TA_YUV_TEX_BASE\n", (unsigned)val);
     ta_yuv_tex_base = val & BIT_RANGE(3, 23);
     pvr2_yuv_set_base(ta_yuv_tex_base);
+}
+
+static uint32_t
+list_cont_mmio_read(struct mmio_region_pvr2_core_reg *region,
+                    unsigned idx, void *ctxt) {
+    return 0;
+}
+
+static void
+list_cont_mmio_write(struct mmio_region_pvr2_core_reg *region,
+                     unsigned idx, uint32_t val, void *ctxt) {
+    if (val) {
+        error_set_feature("TA list continuation");
+        RAISE_ERROR(ERROR_UNIMPLEMENTED);
+    }
 }
 
 #define PAL_RAM_FIRST_IDX ((PVR2_PALETTE_RAM_FIRST - ADDR_PVR2_CORE_FIRST) / 4)
