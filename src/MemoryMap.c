@@ -66,6 +66,42 @@ MEMORY_MAP_READ_TMPL(uint32_t, 32)
 MEMORY_MAP_READ_TMPL(float, float)
 MEMORY_MAP_READ_TMPL(double, double)
 
+#define MEMORY_MAP_READ_EXEC_TMPL(type, type_postfix)                   \
+    type memory_map_read_##type_postfix##_exec(struct memory_map *map,  \
+                                             uint32_t addr) {           \
+        uint32_t first_addr = addr;                                     \
+        uint32_t last_addr = sizeof(type) - 1 + first_addr;             \
+                                                                        \
+        unsigned region_no;                                             \
+        for (region_no = 0; region_no < map->n_regions; region_no++) {  \
+            uint32_t range_mask = map->regions[region_no].range_mask;   \
+            struct memory_map_region *reg = map->regions + region_no;   \
+            if ((first_addr & range_mask) >= reg->first_addr &&         \
+                (last_addr & range_mask) <= reg->last_addr) {           \
+                if (!reg->executable) {                                 \
+                    error_set_address(addr);                            \
+                    error_set_length(sizeof(type));                     \
+                    error_set_feature("executing the given memory region\n"); \
+                    RAISE_ERROR(ERROR_UNIMPLEMENTED);                   \
+                }                                                       \
+                uint32_t mask = reg->mask;                              \
+                void *ctxt = reg->ctxt;                                 \
+                return reg->intf->read##type_postfix(addr & mask, ctxt); \
+            }                                                           \
+        }                                                               \
+                                                                        \
+        error_set_feature("memory mapping");                            \
+        error_set_address(addr);                                        \
+        error_set_length(sizeof(type));                                 \
+        RAISE_ERROR(ERROR_UNIMPLEMENTED);                               \
+    }
+
+MEMORY_MAP_READ_EXEC_TMPL(uint8_t, 8)
+MEMORY_MAP_READ_EXEC_TMPL(uint16_t, 16)
+MEMORY_MAP_READ_EXEC_TMPL(uint32_t, 32)
+MEMORY_MAP_READ_EXEC_TMPL(float, float)
+MEMORY_MAP_READ_EXEC_TMPL(double, double)
+
 #define MEMORY_MAP_TRY_READ_TMPL(type, type_postfix)                    \
     int memory_map_try_read_##type_postfix(struct memory_map *map,      \
                                            uint32_t addr, type *val) {  \
@@ -155,6 +191,7 @@ void
 memory_map_add(struct memory_map *map,
                uint32_t addr_first,
                uint32_t addr_last,
+               bool executable,
                uint32_t range_mask,
                uint32_t mask,
                enum memory_map_region_id id,
@@ -172,4 +209,5 @@ memory_map_add(struct memory_map *map,
     reg->id = id;
     reg->intf = intf;
     reg->ctxt = ctxt;
+    reg->executable = executable;
 }

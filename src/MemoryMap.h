@@ -24,6 +24,7 @@
 #define MEMORYMAP_H_
 
 #include <stdint.h>
+#include <stdbool.h>
 
 #include "mem_areas.h"
 
@@ -111,6 +112,8 @@ struct memory_map_region {
     uint32_t range_mask;
     uint32_t mask;
 
+    bool executable;
+
     // Pointer where regions can store whatever context they may need.
     void *ctxt;
 
@@ -133,10 +136,22 @@ void
 memory_map_add(struct memory_map *map,
                uint32_t addr_first,
                uint32_t addr_last,
+               bool executable,
                uint32_t range_mask,
                uint32_t mask,
                enum memory_map_region_id id,
                struct memory_interface const *intf, void *ctxt);
+
+uint8_t
+memory_map_read_8_exec(struct memory_map *map, uint32_t addr);
+uint16_t
+memory_map_read_16_exec(struct memory_map *map, uint32_t addr);
+uint32_t
+memory_map_read_32_exec(struct memory_map *map, uint32_t addr);
+float
+memory_map_read_float_exec(struct memory_map *map, uint32_t addr);
+double
+memory_map_read_double_exec(struct memory_map *map, uint32_t addr);
 
 uint8_t
 memory_map_read_8(struct memory_map *map, uint32_t addr);

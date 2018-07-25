@@ -118,7 +118,7 @@ static inline inst_t sh4_do_read_inst(Sh4 *sh4, addr32_t addr) {
      * it's good that things are faster lol.
      */
     addr &= 0x1fffffff;
-    return memory_map_read_16(sh4->mem.map, addr);
+    return memory_map_read_16_exec(sh4->mem.map, addr);
 }
 
 static inline inst_t sh4_read_inst(Sh4 *sh4) {

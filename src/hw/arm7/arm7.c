@@ -704,7 +704,7 @@ static void arm7_check_excp(struct arm7 *arm7) {
 }
 
 static uint32_t do_fetch_inst(struct arm7 *arm7, uint32_t addr) {
-    uint32_t inst = memory_map_read_32(arm7->map, addr);
+    uint32_t inst = memory_map_read_32_exec(arm7->map, addr);
 
     if (addr == 0 && inst == 0xeafffff8) {
         /*
