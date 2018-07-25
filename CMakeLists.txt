@@ -76,6 +76,7 @@ option(DEEP_SYSCALL_TRACE "enable logging to observe the behavior of system call
 option(ENABLE_LOG_DEBUG "enable extra debug logs" OFF)
 option(ENABLE_JIT_X86_64 "enable native x86_64 JIT backend" ON)
 option(JIT_OPTIMIZE "enable optimization passes on the JIT that dont actually work" OFF)
+option(DETECT_SMC "print an error message when self-modifying code is detected (JIT only)" OFF)
 
 if (DBG_EXIT_ON_UNDEFINED_OPCODE)
    add_definitions(-DDBG_EXIT_ON_UNDEFINED_OPCODE)
@@ -99,6 +100,10 @@ endif()
 
 if (ENABLE_LOG_DEBUG)
    add_definitions(-DENABLE_LOG_DEBUG)
+endif()
+
+if (DETECT_SMC)
+  add_definitions(-DDETECT_SMC)
 endif()
 
 # TODO: this was originally supposed to be just the sh4-related code,

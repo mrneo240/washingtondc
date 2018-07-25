@@ -88,6 +88,49 @@ enum memory_map_region_id {
     MEMORY_MAP_REGION_RAM
 };
 
+
+#ifdef DETECT_SMC
+/*
+ * SELF-MODIFYING CODE DETECTION
+ *
+ * Each memory region has a flag set at initialization which determines whether
+ * or not that region is executable.  This flag is never changed.
+ *
+ * Each executable region is divided into a number of equally-sized pages.
+ *
+ * The map as a whole has a "stamp" which denotes the number of times that
+ * executable memory has been written to.  This stamp gets incremented on every
+ * write to executable memory.  Each page has a copy of what the stamp was last
+ * time it was written to.  Each code block (in the jit source) also has a copy
+ * of what the stamp was when that code block was created.
+ *
+ * Each time a new code block is fetched, every page it spans is checked to see
+ * if it that page's stamp is newer then the code block's stamp.  If so, the
+ * code block is invalidated so that it can be regenerated.   After it is
+ * regenerated, its stamp is updated to the current stamp.
+ *
+ * This leaves the problem of what to do when the stamp overflows.  Most obvious
+ * solution is to invalidate all code blocks.
+ *
+ * This scheme puts the onus to prevent self-modifying code on the dispatch
+ * code.  This is suboptimal because it requires an O(N) search through
+ * executable pages.  If I prevent code blocks from spanning multiple pages
+ * then it becomes an O(1) search, which lessens the impact.  I could also
+ * move the work into the memory write function by having a linked-list node in
+ * every code block that's used to link it into a per-page list of code blocks.
+ * This might be a better system and it might even mean I don't need the stamps.
+ */
+
+// 4-kilobyte pages
+#define MAP_PAGE_SHIFT 12
+#define MAP_PAGE_SIZE (1 << MAP_PAGE_SHIFT)
+#define MAP_PAGE_MASK (MAP_PAGE_SIZE - 1)
+
+typedef uint32_t map_stamp_type;
+#define MAP_STAMP_MAX UINT32_MAX
+
+#endif
+
 struct memory_interface {
     /*
      * TODO: there should also be separate try_read/try_write handlers so we
@@ -127,6 +170,10 @@ struct memory_map_region {
 struct memory_map {
     struct memory_map_region regions[MAX_MEM_MAP_REGIONS];
     unsigned n_regions;
+
+#ifdef DETECT_SMC
+    map_stamp_type cur_stamp;
+#endif
 };
 
 void memory_map_init(struct memory_map *map);
