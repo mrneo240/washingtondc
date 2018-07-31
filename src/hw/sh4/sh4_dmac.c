@@ -40,8 +40,11 @@
 
 static void raise_ch2_dma_int_event_handler(struct SchedEvent *event);
 
-// this is arbitrary
-#define CH2_DMA_INT_DELAY 0
+/*
+ * TODO: This number is fictional, I need a real heuristic
+ * backed by empirical evidence
+ */
+#define CH2_DMA_INT_DELAY (SCHED_FREQUENCY / (1024 * 1024)) // 1 microsecond
 
 struct SchedEvent raise_ch2_dma_int_event = {
     .handler = raise_ch2_dma_int_event_handler
