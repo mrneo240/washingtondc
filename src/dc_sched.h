@@ -31,7 +31,7 @@
  */
 #define SCHED_FREQUENCY 5400000000
 
-#define DC_TIMESLICE (SCHED_FREQUENCY / 400)
+#define DC_TIMESLICE (SCHED_FREQUENCY / 4000)
 
 // simple priority-queue scheduler
 
