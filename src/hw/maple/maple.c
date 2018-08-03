@@ -60,9 +60,9 @@
 /*
  * delay that specifies how long a DMA transaction should take.
  * this value is arbitrary.
- * TODO: it probably should not be 0 since that would be instant.
+ * TODO: this value is entirely fictional, need to measure a real one!
  */
-#define MAPLE_DMA_COMPLETE_DELAY 0
+#define MAPLE_DMA_COMPLETE_DELAY (SCHED_FREQUENCY / 1024)
 
 static void maple_dma_complete_int_event_handler(struct SchedEvent *event);
 
