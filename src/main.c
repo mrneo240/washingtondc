@@ -37,6 +37,7 @@
 #include "gdi.h"
 #include "config.h"
 #include "log.h"
+#include "sound/sound.h"
 
 static void print_usage(char const *cmd) {
     fprintf(stderr, "USAGE: %s [options] [-d IP.BIN] [-u 1ST_READ.BIN]\n\n", cmd);
@@ -243,6 +244,7 @@ int main(int argc, char **argv) {
 
     win_init(640, 480, title_content);
     gfx_init(640, 480);
+    sound_init();
     framebuffer_init(640, 480);
     io_thread_launch();
 
@@ -251,6 +253,7 @@ int main(int argc, char **argv) {
 
     dreamcast_run();
 
+    sound_cleanup();
     gfx_cleanup();
 
     LOG_INFO("killing the window...\n");

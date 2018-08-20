@@ -282,7 +282,9 @@ set(sh4_sources "${PROJECT_SOURCE_DIR}/src/hw/sh4/sh4.c"
                 "${PROJECT_SOURCE_DIR}/src/hw/arm7/arm7.h"
                 "${PROJECT_SOURCE_DIR}/src/hw/arm7/arm7.c"
                 "${PROJECT_SOURCE_DIR}/src/pix_conv.h"
-                "${PROJECT_SOURCE_DIR}/src/pix_conv.c")
+                "${PROJECT_SOURCE_DIR}/src/pix_conv.c"
+                "${PROJECT_SOURCE_DIR}/src/sound/sound.h"
+                "${PROJECT_SOURCE_DIR}/src/sound/sound.c")
 
 set(washingtondc_sources "${PROJECT_SOURCE_DIR}/src/main.c")
 
@@ -397,7 +399,8 @@ set(include_dirs "${OPENGL_INCLUDE_DIR}"
                  "${PROJECT_SOURCE_DIR}/external/glfw/include"
                  "${libpng_path}"
                  "${zlib_path}"
-                 "${CMAKE_BINARY_DIR}/washingtondc-libevent/src/libevent/include")
+                 "${CMAKE_BINARY_DIR}/washingtondc-libevent/src/libevent/include"
+                 "${PROJECT_SOURCE_DIR}/external/portaudio/include")
 
 include_directories("${include_dirs}")
 
@@ -417,4 +420,4 @@ add_executable(washingtondc ${washingtondc_sources})
 
 add_dependencies(washingtondc libevent sh4)
 add_dependencies(sh4 libevent)
-target_link_libraries(washingtondc m sh4 rt png zlib glfw glew ${OPENGL_gl_LIBRARY} pthread ${LIBEVENT_LIB_PATH}/lib/libevent.a)
+target_link_libraries(washingtondc m sh4 rt png zlib glfw glew ${OPENGL_gl_LIBRARY} pthread ${LIBEVENT_LIB_PATH}/lib/libevent.a portaudio)
