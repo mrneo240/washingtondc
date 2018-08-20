@@ -290,7 +290,9 @@ set(sh4_sources "${PROJECT_SOURCE_DIR}/src/hw/sh4/sh4.c"
                 "${PROJECT_SOURCE_DIR}/src/hw/arm7/arm7.h"
                 "${PROJECT_SOURCE_DIR}/src/hw/arm7/arm7.c"
                 "${PROJECT_SOURCE_DIR}/src/pix_conv.h"
-                "${PROJECT_SOURCE_DIR}/src/pix_conv.c")
+                "${PROJECT_SOURCE_DIR}/src/pix_conv.c"
+                "${PROJECT_SOURCE_DIR}/src/sound/sound.h"
+                "${PROJECT_SOURCE_DIR}/src/sound/sound.c")
 
 set(washingtondc_sources "${PROJECT_SOURCE_DIR}/src/main.c")
 
@@ -438,7 +440,8 @@ set(include_dirs "${OPENGL_INCLUDE_DIR}"
                  "${PROJECT_SOURCE_DIR}/external/glfw/include"
                  "${libpng_path}"
                  "${zlib_path}"
-                 "${CMAKE_BINARY_DIR}/washingtondc-libevent/src/libevent/include")
+                 "${CMAKE_BINARY_DIR}/washingtondc-libevent/src/libevent/include"
+                 "${PROJECT_SOURCE_DIR}/external/portaudio/include")
 
 if (ENABLE_DEBUGGER)
   set(include_dirs "${include_dirs}"
@@ -473,7 +476,8 @@ set(washingtondc_libs "m"
                       "glew"
                       "${OPENGL_gl_LIBRARY}"
                       "pthread"
-                      "${LIBEVENT_LIB_PATH}/lib/libevent.a")
+                      "${LIBEVENT_LIB_PATH}/lib/libevent.a"
+                      "portaudio")
 
 if (ENABLE_DEBUGGER)
     set(washingtondc_libs "${washingtondc_libs}" capstone-static)
