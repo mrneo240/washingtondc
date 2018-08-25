@@ -979,8 +979,9 @@ static void
 list_cont_mmio_write(struct mmio_region_pvr2_core_reg *region,
                      unsigned idx, uint32_t val, void *ctxt) {
     if (val) {
-        error_set_feature("TA list continuation");
-        RAISE_ERROR(ERROR_UNIMPLEMENTED);
+        pvr2_ta_list_continue();
+        /* error_set_feature("TA list continuation"); */
+        /* RAISE_ERROR(ERROR_UNIMPLEMENTED); */
     }
 }
 

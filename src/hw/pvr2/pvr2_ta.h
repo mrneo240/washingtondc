@@ -121,4 +121,6 @@ void pvr2_ta_cleanup(void);
 
 unsigned get_cur_frame_stamp(void);
 
+void pvr2_ta_list_continue(void);
+
 #endif

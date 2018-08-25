@@ -929,7 +929,9 @@ static void on_polyhdr_received(void) {
         list_submitted[list]) {
         LOG_WARN("WARNING: unable to open list %s because it is already "
                  "closed\n", display_list_names[list]);
-        goto the_end;
+        // DO NOT MERGE TO MASTER
+        /* goto the_end; */
+        list_submitted[list] = false;
     }
 
     if ((poly_state.current_list != DISPLAY_LIST_NONE) &&
@@ -1100,7 +1102,7 @@ static void on_polyhdr_received(void) {
 
     LOG_DBG("POLY HEADER PACKET!\n");
 
-the_end:
+/* the_end: */
     ta_fifo_finish_packet();
 }
 
@@ -1905,3 +1907,10 @@ struct memory_interface pvr2_ta_fifo_intf = {
     .write16 = pvr2_ta_fifo_poly_write_16,
     .write8 = pvr2_ta_fifo_poly_write_8
 };
+
+void pvr2_ta_list_continue(void) {
+    printf("%s\n", __func__);
+    list_submitted[poly_state.current_list] = false;
+    poly_state.current_list = DISPLAY_LIST_NONE;
+    open_group = false;
+}
