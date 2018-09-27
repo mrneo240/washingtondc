@@ -64,6 +64,10 @@
 
 #define AICA_UNKNOWN_2880 0x2880
 
+#define AICA_UNKNOWN_2884 0x2884
+#define AICA_UNKNOWN_2888 0x2888
+#define AICA_UNKNOWN_288c 0x288c
+
 #define AICA_TIMERA_CTRL 0x2890
 #define AICA_TIMERB_CTRL 0x2894
 #define AICA_TIMERC_CTRL 0x2898
@@ -452,6 +456,19 @@ aica_sys_reg_post_write(struct aica *aica, unsigned idx, bool from_sh4) {
     case AICA_UNKNOWN_2880:
         memcpy(&val, aica->sys_reg + (AICA_UNKNOWN_2880/4), sizeof(val));
         LOG_DBG("Writing 0x%08x to AICA_UNKNOWN_2880\n", (unsigned)val);
+        break;
+
+    case AICA_UNKNOWN_2884:
+        memcpy(&val, aica->sys_reg + (AICA_UNKNOWN_2884/4), sizeof(val));
+        LOG_DBG("Writing 0x%08x to AICA_UNKNOWN_2884\n", (unsigned)val);
+        break;
+    case AICA_UNKNOWN_2888:
+        memcpy(&val, aica->sys_reg + (AICA_UNKNOWN_2888/4), sizeof(val));
+        LOG_DBG("Writing 0x%08x to AICA_UNKNOWN_2888\n", (unsigned)val);
+        break;
+    case AICA_UNKNOWN_288c:
+        memcpy(&val, aica->sys_reg + (AICA_UNKNOWN_288c/4), sizeof(val));
+        LOG_DBG("Writing 0x%08x to AICA_UNKNOWN_288c\n", (unsigned)val);
         break;
 
         /*
