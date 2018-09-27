@@ -42,7 +42,7 @@ enum gfx_tex_fmt {
  * the PVR2 STARTRENDER command.
  */
 
-#define GFX_TEX_CACHE_SIZE 512
+#define GFX_TEX_CACHE_SIZE 2048
 #define GFX_TEX_CACHE_MASK (GFX_TEX_CACHE_SIZE - 1)
 
 struct gfx_tex {

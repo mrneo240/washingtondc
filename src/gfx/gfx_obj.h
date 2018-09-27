@@ -33,7 +33,7 @@
  * underlying storage class for textures and render targets.
  */
 
-#define GFX_OBJ_COUNT 768
+#define GFX_OBJ_COUNT 1024
 
 void gfx_obj_init(int handle, size_t n_bytes);
 void gfx_obj_free(int handle);
