@@ -43,9 +43,21 @@ enum ringbuffer_size {
 #define AICA_CHAN_COUNT 64
 #define AICA_CHAN_LEN 128
 
+enum aica_fmt {
+    AICA_FMT_16_BIT_SIGNED,
+    AICA_FMT_8_BIT_SIGNED,
+    AICA_FMT_4_BIT_ADPCM,
+    AICA_FMT_INVALID
+};
+
 // It's AICA's cute younger sister, aica-chan!
 struct aica_chan {
     uint8_t raw[AICA_CHAN_LEN];
+
+    enum aica_fmt fmt;
+
+    uint32_t addr_start, addr_cur;
+    uint32_t loop_start, loop_end;
 
     /*
      * bit 15 of the play control register will execute a key-on (if set) or
