@@ -295,6 +295,7 @@ static void aica_sys_write_double(addr32_t addr, double val, void *ctxt) {
 static void
 aica_sys_reg_pre_read(struct aica *aica, unsigned idx, bool from_sh4) {
     uint32_t val;
+    struct aica_chan *chan;
     switch (4 * idx) {
     case AICA_MASTER_VOLUME:
         // Neill Corlett's AICA notes say this is always 16 when you read from it
@@ -341,6 +342,18 @@ aica_sys_reg_pre_read(struct aica *aica, unsigned idx, bool from_sh4) {
                 (unsigned)aica->sys_reg[idx]);
         break;
     case AICA_PLAYSTATUS:
+        chan = aica->channels + aica->chan_sel;
+
+        if (aica->afsel != AICA_AFSEL_ATTEN)
+            RAISE_ERROR(ERROR_UNIMPLEMENTED);
+        if (chan->atten > 0x3bf && chan->atten != 0x1fff)
+            RAISE_ERROR(ERROR_INTEGRITY); // should have already been clamped
+
+        val = chan->atten | (((unsigned)chan->atten_env_state) << 13) |
+            (chan->loop_end_playstatus_flag ? (1 << 15) : 0);
+        chan->loop_end_playstatus_flag = false;
+
+        memcpy(aica->sys_reg + idx, &val, sizeof(uint32_t));
         LOG_DBG("Reading 0x%08x from AICA_PLAYSTATUS\n",
                 (unsigned)aica->sys_reg[idx]);
         break;
@@ -471,6 +484,7 @@ aica_sys_reg_post_write(struct aica *aica, unsigned idx, bool from_sh4) {
          * didn't implement that.
          */
     case AICA_TIMERA_CTRL:
+        printf("write to TIMERA_CTRL\n");
         memcpy(&val, aica->sys_reg + (AICA_TIMERA_CTRL/4), sizeof(val));
         on_timer_ctrl_write(aica, 0, val);
         break;
@@ -506,6 +520,10 @@ aica_sys_reg_post_write(struct aica *aica, unsigned idx, bool from_sh4) {
     case AICA_CHANINFOREQ:
         memcpy(&val, aica->sys_reg + (AICA_CHANINFOREQ/4), sizeof(val));
         LOG_DBG("Writing 0x%08x to AICA_CHANINFOREQ\n", (unsigned)val);
+
+        aica->chan_sel = (val >> 8) & (0x40 - 1);
+        aica->afsel = (enum aica_afsel)(val >> 14);
+
         break;
 
     default:
@@ -561,6 +579,8 @@ static void aica_sys_channel_read(struct aica *aica, void *dst,
         tmp = chan->addr_start & 0xffff;
         memcpy(chan->raw + AICA_CHAN_SAMPLE_ADDR_LOW, &tmp, sizeof(tmp));
         break;
+    default:
+        LOG_INFO("Reading from AICA register 0x%08x\n", (unsigned)chan_reg/4);
     }
 
     memcpy(dst, chan->raw + chan_reg, len);
