@@ -5600,6 +5600,8 @@ void sh4_inst_invalid(Sh4 *sh4, Sh4OpArgs inst) {
     LOG_ERROR("ERROR - unrecognized opcode at PC=0x%08x\n",
               sh4->reg[SH4_REG_PC]);
 
+    return;
+
 #ifdef DBG_EXIT_ON_UNDEFINED_OPCODE
 
     error_set_feature("SH4 CPU exception for unrecognized opcode");
