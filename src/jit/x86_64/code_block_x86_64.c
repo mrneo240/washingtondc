@@ -1375,7 +1375,8 @@ void ms_shadow_close(void) {
 }
 
 void code_block_x86_64_compile(struct code_block_x86_64 *out,
-                               struct il_code_block const *il_blk) {
+                               struct il_code_block const *il_blk,
+                               struct native_dispatch *disp) {
     struct jit_inst const* inst = il_blk->inst_list;
     unsigned inst_count = il_blk->inst_count;
     Sh4 *sh4 = dreamcast_get_cpu();
@@ -1510,5 +1511,5 @@ void code_block_x86_64_compile(struct code_block_x86_64 *out,
     x86asm_mov_imm32_reg32(out->cycle_count, REG_ARG0);
     x86asm_mov_reg32_reg32(REG_RET, REG_ARG1);
     emit_stack_frame_close();
-    native_check_cycles_emit();
+    native_check_cycles_emit(disp);
 }

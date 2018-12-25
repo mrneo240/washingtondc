@@ -29,6 +29,7 @@
 #error this file should not be built when the x86_64 JIT backend is disabled
 #endif
 
+struct native_dispatch;
 struct il_code_block;
 
 struct code_block_x86_64 {
@@ -42,7 +43,8 @@ void code_block_x86_64_init(struct code_block_x86_64 *blk);
 void code_block_x86_64_cleanup(struct code_block_x86_64 *blk);
 
 void code_block_x86_64_compile(struct code_block_x86_64 *out,
-                               struct il_code_block const *il_blk);
+                               struct il_code_block const *il_blk,
+                               struct native_dispatch *disp);
 
 /*
  * if the stack is not 16-byte aligned, make it 16-byte aligned.

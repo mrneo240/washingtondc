@@ -37,40 +37,41 @@
 
 #define BASIC_ALLOC 32
 
-static dc_cycle_stamp_t *sched_tgt;
-static dc_cycle_stamp_t *cycle_stamp;
-static struct dc_clock *native_dispatch_clk;
+/* static dc_cycle_stamp_t *sched_tgt; */
+/* static dc_cycle_stamp_t *cycle_stamp; */
+/* static struct dc_clock *native_dispatch_clk; */
 
-uint32_t (*native_dispatch_entry)(uint32_t pc);
+/* uint32_t (*native_dispatch_entry)(uint32_t pc); */
 
-static void native_dispatch_entry_create(void);
-static void native_dispatch_emit(void);
+static void native_dispatch_entry_create(struct native_dispatch *disp);
+static void native_dispatch_emit(struct native_dispatch *disp);
 
 static void load_quad_into_reg(void *qptr, unsigned reg_no);
 static void store_quad_from_reg(void *qptr, unsigned reg_no,
                                 unsigned clobber_reg);
 
-void native_dispatch_init(struct dc_clock *clk) {
-    native_dispatch_clk = clk;
-    sched_tgt = exec_mem_alloc(sizeof(*sched_tgt));
-    cycle_stamp = exec_mem_alloc(sizeof(*cycle_stamp));
+void native_dispatch_init(struct native_dispatch *disp, struct dc_clock *clk, struct code_cache *jit_cache) {
+    disp->native_dispatch_clk = clk;
+    disp->sched_tgt = exec_mem_alloc(sizeof(*disp->sched_tgt));
+    disp->cycle_stamp = exec_mem_alloc(sizeof(*disp->cycle_stamp));
+    disp->jit_cache = jit_cache;
 
-    clock_set_target_pointer(clk, sched_tgt);
-    clock_set_cycle_stamp_pointer(clk, cycle_stamp);
+    clock_set_target_pointer(clk, disp->sched_tgt);
+    clock_set_cycle_stamp_pointer(clk, disp->cycle_stamp);
 
-    native_dispatch_entry_create();
+    native_dispatch_entry_create(disp);
 }
 
-void native_dispatch_cleanup(void) {
+void native_dispatch_cleanup(struct native_dispatch *disp) {
     // TODO: free all executable memory pointers
-    clock_set_target_pointer(native_dispatch_clk, NULL);
-    exec_mem_free(cycle_stamp);
-    exec_mem_free(sched_tgt);
+    clock_set_target_pointer(disp->native_dispatch_clk, NULL);
+    exec_mem_free(disp->cycle_stamp);
+    exec_mem_free(disp->sched_tgt);
 }
 
-static void native_dispatch_entry_create(void) {
-    native_dispatch_entry = exec_mem_alloc(BASIC_ALLOC);
-    x86asm_set_dst(native_dispatch_entry, BASIC_ALLOC);
+static void native_dispatch_entry_create(struct native_dispatch *disp) {
+    disp->native_dispatch_entry = exec_mem_alloc(BASIC_ALLOC);
+    x86asm_set_dst(disp->native_dispatch_entry, BASIC_ALLOC);
 
 #if defined(ABI_UNIX)
     x86asm_pushq_reg64(RBP);
@@ -119,10 +120,10 @@ static void native_dispatch_entry_create(void) {
      * JIT code is only expected to preserve the base pointer, and to leave the
      * new value of the PC in RAX.  Other than that, it may do as it pleases.
      */
-    native_dispatch_emit();
+    native_dispatch_emit(disp);
 }
 
-static void native_dispatch_emit(void) {
+static void native_dispatch_emit(struct native_dispatch *disp) {
     struct x86asm_lbl8 check_valid_bit, code_cache_slow_path, have_valid_ent,
         compile;
 
@@ -155,7 +156,7 @@ static void native_dispatch_emit(void) {
     x86asm_lbl8_init(&have_valid_ent);
     x86asm_lbl8_init(&compile);
 
-    x86asm_mov_imm64_reg64((uintptr_t)(void*)code_cache_tbl, code_cache_tbl_ptr_reg);
+    x86asm_mov_imm64_reg64((uintptr_t)(void*)disp->jit_cache->code_cache_tbl, code_cache_tbl_ptr_reg);
 
     x86asm_mov_reg32_reg32(pc_reg, code_hash_reg);
     x86asm_andl_imm32_reg32(CODE_CACHE_HASH_TBL_MASK, code_hash_reg);
@@ -188,6 +189,7 @@ static void native_dispatch_emit(void) {
      * this is the last time we'll need it so there's no need to store it
      * anywhere
      */
+    x86asm_mov_imm64_reg64((uintptr_t)(void*)disp, REG_ARG3);
     x86asm_mov_reg32_reg32(pc_reg, REG_ARG2);
     x86asm_mov_reg64_reg64(cachep_reg, REG_ARG1);
     x86asm_addq_imm8_reg(offsetof(struct cache_entry, blk.x86_64), REG_ARG1);
@@ -219,6 +221,8 @@ static void native_dispatch_emit(void) {
     // call code_cache_find_slow
     x86asm_mov_imm64_reg64((uintptr_t)(void*)&code_cache_find_slow, func_reg);
     x86asm_mov_reg32_reg32(pc_reg, tmp_reg_1);
+    x86asm_mov_reg32_reg32(pc_reg, REG_ARG1);
+    x86asm_mov_imm64_reg64((uintptr_t)(void*)disp->jit_cache, REG_ARG0);
     x86asm_mov_reg64_reg64(code_hash_reg, tmp_reg_2);
     x86asm_addq_imm8_reg(-32, RSP);
     x86asm_call_reg(func_reg);
@@ -239,7 +243,7 @@ static void native_dispatch_emit(void) {
     x86asm_lbl8_cleanup(&check_valid_bit);
 }
 
-void native_check_cycles_emit(void) {
+void native_check_cycles_emit(struct native_dispatch *disp) {
     struct x86asm_lbl8 dont_return;
     x86asm_lbl8_init(&dont_return);
 
@@ -252,8 +256,8 @@ void native_check_cycles_emit(void) {
     static unsigned const cycle_stamp_reg = REG_RET;
     static unsigned const ret_reg = REG_RET;
 
-    load_quad_into_reg(sched_tgt, sched_tgt_reg);
-    load_quad_into_reg(cycle_stamp, cycle_stamp_reg);
+    load_quad_into_reg(disp->sched_tgt, sched_tgt_reg);
+    load_quad_into_reg(disp->cycle_stamp, cycle_stamp_reg);
     x86asm_addq_reg64_reg64(cycle_stamp_reg, cycle_count_reg);
     x86asm_cmpq_reg64_reg64(sched_tgt_reg, cycle_count_reg);
     x86asm_jb_lbl8(&dont_return);
@@ -262,7 +266,7 @@ void native_check_cycles_emit(void) {
     x86asm_mov_reg32_reg32(jump_reg, ret_reg);
 
     // store sched_tgt into cycle_stamp
-    store_quad_from_reg(cycle_stamp, sched_tgt_reg, REG_VOL1);
+    store_quad_from_reg(disp->cycle_stamp, sched_tgt_reg, REG_VOL1);
 
     // close the stack frame
     x86asm_addq_imm8_reg(8, RSP);
@@ -292,11 +296,11 @@ void native_check_cycles_emit(void) {
     // continue
     x86asm_lbl8_define(&dont_return);
 
-    store_quad_from_reg(cycle_stamp, cycle_count_reg, REG_VOL1);
+    store_quad_from_reg(disp->cycle_stamp, cycle_count_reg, REG_VOL1);
 
     // call native_dispatch
     x86asm_mov_reg32_reg32(jump_reg, REG_ARG0);
-    native_dispatch_emit();
+    native_dispatch_emit(disp);
 
     x86asm_lbl8_cleanup(&dont_return);
 }

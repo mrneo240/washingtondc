@@ -464,7 +464,7 @@ static struct Sh4MemMappedReg mem_mapped_regs[] = {
     { NULL }
 };
 
-static struct avl_node *sh4_reg_avl_ctor(void) {
+static struct avl_node *sh4_reg_avl_ctor(void *argp) {
     struct sh4_avl_node *node =
         (struct sh4_avl_node*)calloc(1, sizeof(struct sh4_avl_node));
 
@@ -473,7 +473,7 @@ static struct avl_node *sh4_reg_avl_ctor(void) {
     return &node->node;
 }
 
-static void sh4_reg_avl_dtor(struct avl_node *node) {
+static void sh4_reg_avl_dtor(struct avl_node *node, void *argp) {
     struct sh4_avl_node *avl_node = &AVL_DEREF(node, struct sh4_avl_node, node);
     free(avl_node);
 }
@@ -481,7 +481,7 @@ static void sh4_reg_avl_dtor(struct avl_node *node) {
 void sh4_init_regs(Sh4 *sh4) {
     sh4_poweron_reset_regs(sh4);
 
-    avl_init(&sh4_reg_tree, sh4_reg_avl_ctor, sh4_reg_avl_dtor);
+    avl_init(&sh4_reg_tree, sh4_reg_avl_ctor, sh4_reg_avl_dtor, NULL);
 
     Sh4MemMappedReg *curs = mem_mapped_regs;
     while (curs->reg_name) {
@@ -682,7 +682,7 @@ sh4_ccr_write_handler(Sh4 *sh4,
                       struct Sh4MemMappedReg const *reg_info,
                       sh4_reg_val val) {
     if (config_get_jit())
-        code_cache_invalidate_all();
+        code_cache_invalidate_all(sh4->jit_cache);
     sh4->reg[SH4_REG_CCR] = val;
 }
 

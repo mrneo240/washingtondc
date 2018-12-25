@@ -30,6 +30,7 @@
 #include "sh4_mem.h"
 #include "error.h"
 #include "dreamcast.h"
+#include "jit/code_cache.h"
 
 #include "sh4.h"
 
@@ -37,10 +38,11 @@ static void sh4_error_set_regs(void *argptr);
 
 static struct error_callback sh4_error_callback;
 
-void sh4_init(Sh4 *sh4, struct dc_clock *clk) {
+void sh4_init(Sh4 *sh4, struct dc_clock *clk, struct code_cache *jit_cache) {
     memset(sh4, 0, sizeof(*sh4));
     sh4->reg_area = (uint8_t*)malloc(sizeof(uint8_t) * (SH4_P4_REGEND - SH4_P4_REGSTART));
     sh4->clk = clk;
+    sh4->jit_cache = jit_cache;
 
     memset(sh4->reg, 0, sizeof(sh4->reg));
 

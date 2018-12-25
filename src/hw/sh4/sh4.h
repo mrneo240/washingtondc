@@ -40,6 +40,8 @@
 #include "sh4_dmac.h"
 #include "dc_sched.h"
 
+struct code_cache;
+
 /*
  * The clock-scale is here defined as the number of scheduler cyclers per sh4
  * cycle.
@@ -66,6 +68,8 @@ typedef enum Sh4ExecState Sh4ExecState;
 
 struct Sh4 {
     struct dc_clock *clk;
+
+    struct code_cache *jit_cache;
 
     Sh4ExecState exec_state;
 
@@ -130,7 +134,7 @@ struct Sh4 {
 
 typedef struct Sh4 Sh4;
 
-void sh4_init(Sh4 *sh4, struct dc_clock *clk);
+void sh4_init(Sh4 *sh4, struct dc_clock *clk, struct code_cache *jit_cache);
 void sh4_cleanup(Sh4 *sh4);
 
 // reset all values to their power-on-reset values

@@ -2,7 +2,7 @@
  *
  *
  *    WashingtonDC Dreamcast Emulator
- *    Copyright (C) 2018 snickerbockers
+ *    Copyright (C) 2018, 2019 snickerbockers
  *
  *    This program is free software: you can redistribute it and/or modify
  *    it under the terms of the GNU General Public License as published by
@@ -27,19 +27,21 @@
 
 #include "dc_sched.h"
 #include "hw/sh4/sh4.h"
+#include "jit/x86_64/native_dispatch.h"
 
-void jit_init(struct dc_clock *clk);
+
+void jit_init(void);
 void jit_cleanup(void);
 
 static inline void
-jit_compile_native(Sh4 *sh4, struct code_block_x86_64 *blk, uint32_t pc) {
+jit_compile_native(Sh4 *sh4, struct code_block_x86_64 *blk, uint32_t pc, struct native_dispatch *disp) {
     struct il_code_block il_blk;
     il_code_block_init(&il_blk);
     il_code_block_compile(sh4, &il_blk, pc);
 #ifdef JIT_OPTIMIZE
     jit_determ_pass(&il_blk);
 #endif
-    code_block_x86_64_compile(blk, &il_blk);
+    code_block_x86_64_compile(blk, &il_blk, disp);
     il_code_block_cleanup(&il_blk);
 }
 

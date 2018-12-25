@@ -32,6 +32,10 @@
 
 #include "hw/sh4/types.h"
 
+#define CODE_CACHE_HASH_TBL_SHIFT 16
+#define CODE_CACHE_HASH_TBL_LEN (1 << CODE_CACHE_HASH_TBL_SHIFT)
+#define CODE_CACHE_HASH_TBL_MASK (CODE_CACHE_HASH_TBL_LEN - 1)
+
 /*
  * TODO: need to include FPU state in code cache, not just address.
  * Otherwise, this code will trip over anything that tries to switch
@@ -45,6 +49,34 @@ struct cache_entry {
 };
 
 /*
+ * oldroot points to a list of trees invalid nodes.
+ *
+ * When code_cache_invalidate_all gets called from within CPU context
+ * (typically due to a write to the SH4 CCR), all nodes need to be deleted.
+ * This is not possible to due within CPU context because that would delete the
+ * node which is currently executed.  As a workaround, the entire tree is
+ * relocated to the oldroot pointer so that its nodes can be freed later when
+ * the emulator exits CPU context.
+ */
+struct code_cache_oldroot_node {
+    struct avl_tree tree;
+    struct code_cache_oldroot_node *next;
+};
+
+struct code_cache {
+    struct avl_tree tree;
+
+    struct code_cache_oldroot_node *oldroot;
+    struct cache_entry* code_cache_tbl[CODE_CACHE_HASH_TBL_LEN];
+
+#ifdef ENABLE_JIT_X86_64
+    bool native_mode;
+#endif
+
+    unsigned n_entries;
+};
+
+/*
  * this might return a pointer to an invalid cache_entry.  If so, that means
  * the cache entry needs to be filled in by the callee.  This function will
  * allocate a new invalid cache entry if there is no entry for addr.
@@ -52,28 +84,29 @@ struct cache_entry {
  * That said, blk will already be init'd no matter what, even if valid is
  * false.
  */
-struct cache_entry *code_cache_find(addr32_t addr);
+struct cache_entry *code_cache_find(struct code_cache *cache, addr32_t addr);
 
 /*
  * This is like code_cache_find, but it skips the second-level hash table.
  * This function is intended for JIT code which handles that itself
  */
-struct cache_entry *code_cache_find_slow(addr32_t addr);
+struct cache_entry *
+code_cache_find_slow(struct code_cache *cache, addr32_t addr);
 
-void code_cache_invalidate_all(void);
+void code_cache_invalidate_all(struct code_cache *cache);
 
-void code_cache_init(void);
-void code_cache_cleanup(void);
+void code_cache_init(struct code_cache *cache);
+void code_cache_cleanup(struct code_cache *cache);
 
 /*
  * call this periodically from outside of CPU context to clear
  * out old cache entries.
  */
-void code_cache_gc(void);
+void code_cache_gc(struct code_cache *cache);
 
 #define CODE_CACHE_HASH_TBL_SHIFT 16
 #define CODE_CACHE_HASH_TBL_LEN (1 << CODE_CACHE_HASH_TBL_SHIFT)
 #define CODE_CACHE_HASH_TBL_MASK (CODE_CACHE_HASH_TBL_LEN - 1)
-extern struct cache_entry* code_cache_tbl[CODE_CACHE_HASH_TBL_LEN];
+/* extern struct cache_entry* code_cache_tbl[CODE_CACHE_HASH_TBL_LEN]; */
 
 #endif

@@ -23,16 +23,27 @@
 #ifndef NATIVE_DISPATCH_H_
 #define NATIVE_DISPATCH_H_
 
-void native_dispatch_init(struct dc_clock *clk);
-void native_dispatch_cleanup(void);
+#include "dc_sched.h"
+#include "jit/code_cache.h"
 
-/*
- * native_dispatch_entry is a generated function which saves all call-stack
- * registers which ought to be saved, calls native_dispatch, and then returns
- * after restoring the saved register state.  It is intended to be called from
- * C code.
- */
-extern uint32_t (*native_dispatch_entry)(uint32_t pc);
+struct native_dispatch {
+    dc_cycle_stamp_t *sched_tgt;
+    dc_cycle_stamp_t *cycle_stamp;
+    struct dc_clock *native_dispatch_clk;
+
+    struct code_cache *jit_cache;
+
+    /*
+     * native_dispatch_entry is a generated function which saves all call-stack
+     * registers which ought to be saved, calls native_dispatch, and then returns
+     * after restoring the saved register state.  It is intended to be called from
+     * C code.
+     */
+    uint32_t (*native_dispatch_entry)(uint32_t pc);
+};
+
+void native_dispatch_init(struct native_dispatch *disp, struct dc_clock *clk, struct code_cache *jit_cache);
+void native_dispatch_cleanup(struct native_dispatch *disp);
 
 /*
  * native_dispatch_check_cycles is a function which updates the cycle counter
@@ -47,6 +58,6 @@ extern uint32_t (*native_dispatch_entry)(uint32_t pc);
  *
  * This function should not be called from C code.
  */
-void native_check_cycles_emit(void);
+void native_check_cycles_emit(struct native_dispatch *disp);
 
 #endif
