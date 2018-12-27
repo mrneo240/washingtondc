@@ -452,11 +452,47 @@ DEF_DATA_OP(bic) {
 /*     return ~rhs; */
 /* } */
 
+#define INST_FN_I_SET                           \
+    input_2 = decode_immed(inst)
+
+#define INST_FN_I_CLEAR {                                               \
+    input_2 = decode_shift(arm7, inst, &c_out);                         \
+    if ((inst & (1 << 4)) && rn == 15)                                  \
+        input_1 += 4; }
+
+#define INST_FN_S_SET_LOGIC                                             \
+    if (rd != 15) {                                                     \
+        uint32_t z_flag = z_out ? ARM7_CPSR_Z_MASK : 0;                 \
+        uint32_t n_flag = n_out ? ARM7_CPSR_N_MASK : 0;                 \
+        uint32_t c_flag = c_out ? ARM7_CPSR_C_MASK : 0;                 \
+        arm7->reg[ARM7_REG_CPSR] &= ~(ARM7_CPSR_Z_MASK |                \
+                                      ARM7_CPSR_N_MASK |                \
+                                      ARM7_CPSR_C_MASK);                \
+        arm7->reg[ARM7_REG_CPSR] |= (z_flag | n_flag | c_flag);         \
+    } else {                                                            \
+        arm7->reg[ARM7_REG_CPSR] = arm7->reg[arm7_spsr_idx(arm7)];      \
+    }
+
+#define INST_FN_S_SET_DATA                                              \
+    if (rd != 15) {                                                     \
+        uint32_t z_flag = z_out ? ARM7_CPSR_Z_MASK : 0;                 \
+        uint32_t n_flag = n_out ? ARM7_CPSR_N_MASK : 0;                 \
+        uint32_t c_flag = c_out ? ARM7_CPSR_C_MASK : 0;                 \
+        uint32_t v_flag = v_out ? ARM7_CPSR_V_MASK : 0;                 \
+        arm7->reg[ARM7_REG_CPSR] &= ~(ARM7_CPSR_Z_MASK |                \
+                                      ARM7_CPSR_N_MASK |                \
+                                      ARM7_CPSR_C_MASK |                \
+                                      ARM7_CPSR_V_MASK);                \
+        arm7->reg[ARM7_REG_CPSR] |= (z_flag | n_flag |                  \
+                                     c_flag | v_flag);                  \
+    } else {                                                            \
+        arm7->reg[ARM7_REG_CPSR] = arm7->reg[arm7_spsr_idx(arm7)];      \
+    }
+
 #define DEF_INST_FN(op_name, is_logic, require_s, write_result)         \
     __attribute__((unused)) static void                                 \
     arm7_inst_##op_name(struct arm7 *arm7, arm7_inst inst) {            \
         bool s_flag = inst & (1 << 20);                                 \
-        bool i_flag = inst & (1 << 25);                                 \
         unsigned rn = (inst >> 16) & 0xf;                               \
         unsigned rd = (inst >> 12) & 0xf;                               \
                                                                         \
@@ -467,40 +503,22 @@ DEF_DATA_OP(bic) {
         uint32_t input_2;                                               \
                                                                         \
         c_out = carry_in;                                               \
-        if (i_flag) {                                                   \
-            input_2 = decode_immed(inst);                               \
-        } else {                                                        \
-            input_2 = decode_shift(arm7, inst, &c_out);                 \
-            if ((inst & (1 << 4)) && rn == 15)                          \
-                input_1 += 4;                                           \
-        }                                                               \
+        if (inst & (1 << 25))                                           \
+            INST_FN_I_SET;                                              \
+        else                                                            \
+            INST_FN_I_CLEAR;                                            \
                                                                         \
         uint32_t res = DATA_OP_FUNC_NAME(op_name)(input_1, input_2,     \
                                                   carry_in, &n_out,     \
                                                   &c_out, &z_out, &v_out); \
-        if (s_flag && rd != 15) {                                       \
+                                                                        \
+                                                                        \
+        if (s_flag) {                                                   \
             if (is_logic) {                                             \
-                uint32_t z_flag = z_out ? ARM7_CPSR_Z_MASK : 0;         \
-                uint32_t n_flag = n_out ? ARM7_CPSR_N_MASK : 0;         \
-                uint32_t c_flag = c_out ? ARM7_CPSR_C_MASK : 0;         \
-                arm7->reg[ARM7_REG_CPSR] &= ~(ARM7_CPSR_Z_MASK |        \
-                                              ARM7_CPSR_N_MASK |        \
-                                              ARM7_CPSR_C_MASK);        \
-                arm7->reg[ARM7_REG_CPSR] |= (z_flag | n_flag | c_flag); \
+                INST_FN_S_SET_LOGIC;                                    \
             } else {                                                    \
-                uint32_t z_flag = z_out ? ARM7_CPSR_Z_MASK : 0;         \
-                uint32_t n_flag = n_out ? ARM7_CPSR_N_MASK : 0;         \
-                uint32_t c_flag = c_out ? ARM7_CPSR_C_MASK : 0;         \
-                uint32_t v_flag = v_out ? ARM7_CPSR_V_MASK : 0;         \
-                arm7->reg[ARM7_REG_CPSR] &= ~(ARM7_CPSR_Z_MASK |        \
-                                              ARM7_CPSR_N_MASK |        \
-                                              ARM7_CPSR_C_MASK |        \
-                                              ARM7_CPSR_V_MASK);        \
-                arm7->reg[ARM7_REG_CPSR] |= (z_flag | n_flag |          \
-                                             c_flag | v_flag);          \
+                INST_FN_S_SET_DATA;                                     \
             }                                                           \
-        } else if (s_flag && rd == 15) {                                \
-            arm7->reg[ARM7_REG_CPSR] = arm7->reg[arm7_spsr_idx(arm7)];  \
         } else if (require_s) {                                         \
             RAISE_ERROR(ERROR_INTEGRITY);                               \
         }                                                               \
