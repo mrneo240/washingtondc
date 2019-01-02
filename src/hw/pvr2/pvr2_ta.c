@@ -370,7 +370,7 @@ static void unpack_uv16(float *u_coord, float *v_coord, void const *input);
  * If this value is too low, it will trigger race conditions in certain games
  * which can cause them to miss interrupts.
  */
-#define PVR2_RENDER_COMPLETE_INT_DELAY (SCHED_FREQUENCY / 1024)
+#define PVR2_RENDER_COMPLETE_INT_DELAY (SCHED_FREQUENCY / (10*1024))
 
 static void pvr2_render_complete_int_event_handler(struct SchedEvent *event);
 
@@ -391,7 +391,7 @@ static bool pvr2_render_complete_int_event_scheduled;
  * which can cause them to miss interrupts.
  *
  */
-#define PVR2_LIST_COMPLETE_INT_DELAY (SCHED_FREQUENCY / 1024)
+#define PVR2_LIST_COMPLETE_INT_DELAY (SCHED_FREQUENCY / (10*1024))
 
 static void pvr2_op_complete_int_event_handler(struct SchedEvent *event);
 static void pvr2_op_mod_complete_int_event_handler(struct SchedEvent *event);

@@ -49,7 +49,7 @@
  * More research is needed to figure out how long this should take and how it
  * interacts with other interrupts.
  */
-#define AICA_DMA_COMPLETE_INT_DELAY 0
+#define AICA_DMA_COMPLETE_INT_DELAY (SCHED_FREQUENCY / (1024*5))
 
 #define N_G2_REGS (ADDR_G2_LAST - ADDR_G2_FIRST + 1)
 
