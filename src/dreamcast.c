@@ -99,7 +99,7 @@ static struct aica aica;
 static struct gdrom_ctxt gdrom;
 static struct pvr2 dc_pvr2;
 
-static struct code_cache sh4_jit_cache;
+static struct code_cache sh4_jit_cache, arm7_jit_cache;
 
 #ifdef ENABLE_JIT_X86_64
 static struct native_dispatch sh4_dispatch;
@@ -256,6 +256,7 @@ void dreamcast_init(bool cmd_session) {
             exec_mem_init();
 #endif
         code_cache_init(&sh4_jit_cache);
+        code_cache_init(&arm7_jit_cache);
 #ifdef ENABLE_JIT_X86_64
         if (config_get_native_jit()) {
             native_mem_init();
@@ -370,6 +371,7 @@ void dreamcast_cleanup() {
             native_mem_cleanup();
         }
 #endif
+        code_cache_cleanup(&arm7_jit_cache);
         code_cache_cleanup(&sh4_jit_cache);
 
 #ifdef ENABLE_JIT_X86_64
@@ -397,8 +399,10 @@ static void run_one_frame(void) {
             return;
         if (dc_clock_run_timeslice(&arm7_clock))
             return;
-        if (config_get_jit())
+        if (config_get_jit()) {
             code_cache_gc(&sh4_jit_cache);
+            code_cache_gc(&arm7_jit_cache);
+        }
 
         true_val = true;
     }
