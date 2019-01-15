@@ -566,7 +566,7 @@ static void emit_stack_frame_close(void) {
 
 // JIT_OP_FALLBACK implementation
 void emit_fallback(Sh4 *sh4, struct jit_inst const *inst) {
-    uint16_t inst_bin = inst->immed.fallback.inst.inst;
+    uint16_t inst_bin = inst->immed.fallback.inst;
 
     prefunc();
 
