@@ -93,7 +93,7 @@ static bool native_mode = true;
 #endif
 
 static struct avl_node*
-cache_entry_ctor(void) {
+cache_entry_ctor(void *argptr) {
     struct cache_entry *ent = calloc(1, sizeof(struct cache_entry));
 
 #ifdef ENABLE_JIT_X86_64
@@ -110,7 +110,7 @@ cache_entry_ctor(void) {
 }
 
 static void
-cache_entry_dtor(struct avl_node *node) {
+cache_entry_dtor(struct avl_node *node, void *argptr) {
     struct cache_entry *ent = &AVL_DEREF(node, struct cache_entry, node);
 #ifdef ENABLE_JIT_X86_64
     if (native_mode)
@@ -122,7 +122,7 @@ cache_entry_dtor(struct avl_node *node) {
 }
 
 static void reinit_tree(void) {
-    avl_init(&tree, cache_entry_ctor, cache_entry_dtor);
+    avl_init(&tree, cache_entry_ctor, cache_entry_dtor, NULL);
 }
 
 void code_cache_init(void) {

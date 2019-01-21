@@ -2,7 +2,7 @@
  *
  *
  *    WashingtonDC Dreamcast Emulator
- *    Copyright (C) 2018 snickerbockers
+ *    Copyright (C) 2018, 2019 snickerbockers
  *
  *    This program is free software: you can redistribute it and/or modify
  *    it under the terms of the GNU General Public License as published by
@@ -45,8 +45,8 @@ struct avl_node {
 
 struct avl_node;
 
-typedef struct avl_node*(*avl_node_ctor)(void);
-typedef void(*avl_node_dtor)(struct avl_node*);
+typedef struct avl_node*(*avl_node_ctor)(void*);
+typedef void(*avl_node_dtor)(struct avl_node*, void*);
 
 struct avl_tree {
     struct avl_node *root;
@@ -58,13 +58,17 @@ struct avl_tree {
      */
     avl_node_ctor ctor;
     avl_node_dtor dtor;
+
+    void *argp;
 };
 
 static inline void
-avl_init(struct avl_tree *tree, avl_node_ctor ctor, avl_node_dtor dtor) {
+avl_init(struct avl_tree *tree, avl_node_ctor ctor,
+         avl_node_dtor dtor, void *argp) {
     memset(tree, 0, sizeof(*tree));
     tree->ctor = ctor;
     tree->dtor = dtor;
+    tree->argp = argp;
 }
 
 static inline void
@@ -74,7 +78,7 @@ avl_clear_node(struct avl_tree *tree, struct avl_node *node) {
             avl_clear_node(tree, node->left);
         if (node->right)
             avl_clear_node(tree, node->right);
-        tree->dtor(node);
+        tree->dtor(node, tree->argp);
     }
 }
 
@@ -207,7 +211,7 @@ static void avl_rot_left(struct avl_tree *tree, struct avl_node *old_root) {
 static inline struct avl_node *
 avl_basic_insert(struct avl_tree *tree, struct avl_node **node_p,
                  struct avl_node *parent, avl_key_type key) {
-    struct avl_node *new_node = tree->ctor();
+    struct avl_node *new_node = tree->ctor(tree->argp);
     if (!new_node)
         RAISE_ERROR(ERROR_FAILED_ALLOC);
     *node_p = new_node;

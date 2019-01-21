@@ -2,7 +2,7 @@
  *
  *
  *    WashingtonDC Dreamcast Emulator
- *    Copyright (C) 2016-2018 snickerbockers
+ *    Copyright (C) 2016-2019 snickerbockers
  *
  *    This program is free software: you can redistribute it and/or modify
  *    it under the terms of the GNU General Public License as published by
@@ -464,7 +464,7 @@ static struct Sh4MemMappedReg mem_mapped_regs[] = {
     { NULL }
 };
 
-static struct avl_node *sh4_reg_avl_ctor(void) {
+static struct avl_node *sh4_reg_avl_ctor(void *argptr) {
     struct sh4_avl_node *node =
         (struct sh4_avl_node*)calloc(1, sizeof(struct sh4_avl_node));
 
@@ -473,7 +473,7 @@ static struct avl_node *sh4_reg_avl_ctor(void) {
     return &node->node;
 }
 
-static void sh4_reg_avl_dtor(struct avl_node *node) {
+static void sh4_reg_avl_dtor(struct avl_node *node, void *argptr) {
     struct sh4_avl_node *avl_node = &AVL_DEREF(node, struct sh4_avl_node, node);
     free(avl_node);
 }
@@ -481,7 +481,7 @@ static void sh4_reg_avl_dtor(struct avl_node *node) {
 void sh4_init_regs(Sh4 *sh4) {
     sh4_poweron_reset_regs(sh4);
 
-    avl_init(&sh4_reg_tree, sh4_reg_avl_ctor, sh4_reg_avl_dtor);
+    avl_init(&sh4_reg_tree, sh4_reg_avl_ctor, sh4_reg_avl_dtor, NULL);
 
     Sh4MemMappedReg *curs = mem_mapped_regs;
     while (curs->reg_name) {
