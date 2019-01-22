@@ -100,11 +100,13 @@ static struct aica aica;
 static struct gdrom_ctxt gdrom;
 static struct pvr2 dc_pvr2;
 
-#ifdef ENABLE_JIT_X86_64
-static struct native_dispatch sh4_native_disp;
-#endif
 
-static struct code_cache sh4_code_cache;
+static struct sh4_jit_state {
+#ifdef ENABLE_JIT_X86_64
+    struct native_dispatch sh4_native_disp;
+#endif
+    struct code_cache sh4_code_cache;
+} sh4_jit_state;
 
 static atomic_bool is_running = ATOMIC_VAR_INIT(false);
 static atomic_bool end_of_frame = ATOMIC_VAR_INIT(false);
@@ -254,13 +256,13 @@ void dreamcast_init(bool cmd_session) {
     arm7_init(&arm7, &arm7_clock, &aica.mem);
     jit_init(&sh4_clock);
 #ifdef ENABLE_JIT_X86_64
-    code_cache_init(&sh4_code_cache, config_get_native_jit());
+    code_cache_init(&sh4_jit_state.sh4_code_cache, config_get_native_jit());
 #else
-    code_cache_init(&sh4_code_cache, false);
+    code_cache_init(&sh4_jit_state.sh4_code_cache, false);
 #endif
 
     if (config_get_jit())
-        cpu.jit_code_cache = &sh4_code_cache;
+        cpu.jit_code_cache = &sh4_jit_state.sh4_code_cache;
     else
         cpu.jit_code_cache = NULL;
 
@@ -281,7 +283,8 @@ void dreamcast_init(bool cmd_session) {
     arm7_set_mem_map(&arm7, &arm7_mem_map);
 
 #ifdef ENABLE_JIT_X86_64
-    native_dispatch_init(&sh4_native_disp, &cpu, &sh4_code_cache, &sh4_clock,
+    native_dispatch_init(&sh4_jit_state.sh4_native_disp, &cpu,
+                         &sh4_jit_state.sh4_code_cache, &sh4_clock,
                          sh4_jit_compile_native);
     native_mem_register(cpu.mem.map);
 #endif
@@ -336,7 +339,7 @@ void dreamcast_cleanup() {
     init_complete = false;
 
 #ifdef ENABLE_JIT_X86_64
-    native_dispatch_cleanup(&sh4_native_disp);
+    native_dispatch_cleanup(&sh4_jit_state.sh4_native_disp);
 #endif
 
     memory_map_cleanup(cpu.mem.map);
@@ -355,7 +358,7 @@ void dreamcast_cleanup() {
     debug_cleanup();
 #endif
 
-    code_cache_cleanup(&sh4_code_cache);
+    code_cache_cleanup(&sh4_jit_state.sh4_code_cache);
     jit_cleanup();
     arm7_cleanup(&arm7);
     sh4_cleanup(&cpu);
@@ -383,7 +386,7 @@ static void run_one_frame(void) {
         if (dc_clock_run_timeslice(&arm7_clock))
             return;
         if (config_get_jit())
-            code_cache_gc(&sh4_code_cache);
+            code_cache_gc(&sh4_jit_state.sh4_code_cache);
 
         true_val = true;
     }
@@ -733,7 +736,7 @@ static bool run_to_next_sh4_event_jit_native(void *ctxt) {
 
     reg32_t newpc = sh4->reg[SH4_REG_PC];
 
-    newpc = sh4_native_disp.native_dispatch_entry(newpc);
+    newpc = sh4_jit_state.sh4_native_disp.native_dispatch_entry(newpc);
 
     sh4->reg[SH4_REG_PC] = newpc;
 
@@ -749,7 +752,8 @@ static bool run_to_next_sh4_event_jit(void *ctxt) {
 
     while (tgt_stamp > clock_cycle_stamp(&sh4_clock)) {
         addr32_t blk_addr = newpc;
-        struct cache_entry *ent = code_cache_find(&sh4_code_cache, blk_addr);
+        struct cache_entry *ent =
+            code_cache_find(&sh4_jit_state.sh4_code_cache, blk_addr);
 
         struct code_block_intp *blk = &ent->blk.intp;
         if (!ent->valid) {
