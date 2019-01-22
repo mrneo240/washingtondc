@@ -100,6 +100,10 @@ static struct aica aica;
 static struct gdrom_ctxt gdrom;
 static struct pvr2 dc_pvr2;
 
+#ifdef ENABLE_JIT_X86_64
+static struct native_dispatch sh4_native_disp;
+#endif
+
 static atomic_bool is_running = ATOMIC_VAR_INIT(false);
 static atomic_bool end_of_frame = ATOMIC_VAR_INIT(false);
 static atomic_bool frame_stop = ATOMIC_VAR_INIT(false);
@@ -146,8 +150,6 @@ static bool run_to_next_sh4_event_jit(void *ctxt);
 static bool run_to_next_arm7_event(void *ctxt);
 
 #ifdef ENABLE_JIT_X86_64
-static native_dispatch_entry_func native_dispatch_entry;
-
 static bool run_to_next_sh4_event_jit_native(void *ctxt);
 #endif
 
@@ -266,8 +268,7 @@ void dreamcast_init(bool cmd_session) {
     arm7_set_mem_map(&arm7, &arm7_mem_map);
 
 #ifdef ENABLE_JIT_X86_64
-    native_dispatch_entry =
-        native_dispatch_entry_create(&cpu, sh4_jit_compile_native);
+    native_dispatch_init(&sh4_native_disp, &cpu, &sh4_clock, sh4_jit_compile_native);
     native_mem_register(cpu.mem.map);
 #endif
 
@@ -321,8 +322,7 @@ void dreamcast_cleanup() {
     init_complete = false;
 
 #ifdef ENABLE_JIT_X86_64
-    exec_mem_free(native_dispatch_entry);
-    native_dispatch_entry = NULL;
+    native_dispatch_cleanup(&sh4_native_disp);
 #endif
 
     memory_map_cleanup(cpu.mem.map);
@@ -718,7 +718,7 @@ static bool run_to_next_sh4_event_jit_native(void *ctxt) {
 
     reg32_t newpc = sh4->reg[SH4_REG_PC];
 
-    newpc = native_dispatch_entry(newpc);
+    newpc = sh4_native_disp.native_dispatch_entry(newpc);
 
     sh4->reg[SH4_REG_PC] = newpc;
 

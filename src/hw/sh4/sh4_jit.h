@@ -33,6 +33,7 @@
 
 #ifdef ENABLE_JIT_X86_64
 #include "jit/x86_64/code_block_x86_64.h"
+struct native_dispatch;
 #endif
 
 struct InstOpcode;
@@ -69,7 +70,8 @@ sh4_jit_il_code_block_compile(struct Sh4 *sh4, struct sh4_jit_compile_ctx *ctx,
 
 #ifdef ENABLE_JIT_X86_64
 static inline void
-sh4_jit_compile_native(void *cpu, void *blk_ptr, uint32_t pc) {
+sh4_jit_compile_native(void *cpu, void *blk_ptr, uint32_t pc,
+                       struct native_dispatch *disp) {
     struct il_code_block il_blk;
     struct code_block_x86_64 *blk = (struct code_block_x86_64*)blk_ptr;
     struct sh4_jit_compile_ctx ctx = { .last_inst_type = SH4_GROUP_NONE,
@@ -81,7 +83,7 @@ sh4_jit_compile_native(void *cpu, void *blk_ptr, uint32_t pc) {
     jit_determ_pass(&il_blk);
 #endif
     code_block_x86_64_compile(cpu, blk, &il_blk, sh4_jit_compile_native,
-                              ctx.cycle_count * SH4_CLOCK_SCALE);
+                              ctx.cycle_count * SH4_CLOCK_SCALE, disp);
     il_code_block_cleanup(&il_blk);
 }
 #endif

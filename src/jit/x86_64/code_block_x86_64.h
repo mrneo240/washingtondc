@@ -34,7 +34,6 @@
 struct il_code_block;
 
 struct code_block_x86_64 {
-    /* void(*native)(void); */
     void *native;
     uint32_t cycle_count;
     unsigned bytes_used;
@@ -47,7 +46,8 @@ void code_block_x86_64_compile(void *cpu,
                                struct code_block_x86_64 *out,
                                struct il_code_block const *il_blk,
                                native_dispatch_compile_func compile_func,
-                               unsigned cycle_count);
+                               unsigned cycle_count,
+                               struct native_dispatch *native_disp);
 
 /*
  * if the stack is not 16-byte aligned, make it 16-byte aligned.
