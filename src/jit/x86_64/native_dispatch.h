@@ -30,6 +30,8 @@
 
 typedef uint32_t(*native_dispatch_entry_func)(uint32_t);
 
+struct code_cache;
+
 struct native_dispatch {
     dc_cycle_stamp_t *sched_tgt;
     dc_cycle_stamp_t *cycle_stamp;
@@ -50,7 +52,7 @@ typedef void(*native_dispatch_compile_func)(void*,void*,addr32_t,
                                             struct native_dispatch*);
 
 void native_dispatch_init(struct native_dispatch *disp, void *ctx_ptr,
-                          struct dc_clock *clk,
+                          struct code_cache *cache, struct dc_clock *clk,
                           native_dispatch_compile_func compile_handler);
 void native_dispatch_cleanup(struct native_dispatch *disp);
 
@@ -68,6 +70,7 @@ void native_dispatch_cleanup(struct native_dispatch *disp);
  * This function should not be called from C code.
  */
 void native_check_cycles_emit(struct native_dispatch *disp, void *ctx_ptr,
+                              struct code_cache *cache,
                               native_dispatch_compile_func compile_handler);
 
 #endif

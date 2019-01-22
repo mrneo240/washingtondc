@@ -37,6 +37,7 @@
 #define BASIC_ALLOC 32
 
 static void native_dispatch_emit(struct native_dispatch *disp, void *ctx_ptr,
+                                 struct code_cache *cache,
                                  native_dispatch_compile_func compile_handler);
 
 static void load_quad_into_reg(void *qptr, unsigned reg_no);
@@ -45,9 +46,11 @@ static void store_quad_from_reg(void *qptr, unsigned reg_no,
 
 static native_dispatch_entry_func
 native_dispatch_entry_create(struct native_dispatch *disp, void *ctx_ptr,
+                             struct code_cache *cache,
                              native_dispatch_compile_func compile_handler);
 
 void native_dispatch_init(struct native_dispatch *disp, void *ctx_ptr,
+                          struct code_cache *cache,
                           struct dc_clock *clk,
                           native_dispatch_compile_func compile_handler) {
     disp->clk = clk;
@@ -58,7 +61,7 @@ void native_dispatch_init(struct native_dispatch *disp, void *ctx_ptr,
     clock_set_target_pointer(disp->clk, disp->sched_tgt);
     clock_set_cycle_stamp_pointer(disp->clk, disp->cycle_stamp);
 
-    disp->native_dispatch_entry = native_dispatch_entry_create(disp, ctx_ptr,
+    disp->native_dispatch_entry = native_dispatch_entry_create(disp, ctx_ptr, cache,
                                                                compile_handler);
 }
 
@@ -72,6 +75,7 @@ void native_dispatch_cleanup(struct native_dispatch *disp) {
 
 static native_dispatch_entry_func
 native_dispatch_entry_create(struct native_dispatch *disp, void *ctx_ptr,
+                             struct code_cache *cache,
                              native_dispatch_compile_func compile_handler) {
     void *entry = exec_mem_alloc(BASIC_ALLOC);
     x86asm_set_dst(entry, BASIC_ALLOC);
@@ -123,12 +127,13 @@ native_dispatch_entry_create(struct native_dispatch *disp, void *ctx_ptr,
      * JIT code is only expected to preserve the base pointer, and to leave the
      * new value of the PC in RAX.  Other than that, it may do as it pleases.
      */
-    native_dispatch_emit(disp, ctx_ptr, compile_handler);
+    native_dispatch_emit(disp, ctx_ptr, cache, compile_handler);
 
     return entry;
 }
 
 static void native_dispatch_emit(struct native_dispatch *disp, void *ctx_ptr,
+                                 struct code_cache *cache,
                                  native_dispatch_compile_func compile_handler) {
     struct x86asm_lbl8 check_valid_bit, code_cache_slow_path, have_valid_ent,
         compile;
@@ -162,7 +167,7 @@ static void native_dispatch_emit(struct native_dispatch *disp, void *ctx_ptr,
     x86asm_lbl8_init(&have_valid_ent);
     x86asm_lbl8_init(&compile);
 
-    x86asm_mov_imm64_reg64((uintptr_t)(void*)code_cache_tbl, code_cache_tbl_ptr_reg);
+    x86asm_mov_imm64_reg64((uintptr_t)(void*)cache->code_cache_tbl, code_cache_tbl_ptr_reg);
 
     x86asm_mov_reg32_reg32(pc_reg, code_hash_reg);
     x86asm_andl_imm32_reg32(CODE_CACHE_HASH_TBL_MASK, code_hash_reg);
@@ -228,6 +233,8 @@ static void native_dispatch_emit(struct native_dispatch *disp, void *ctx_ptr,
     x86asm_mov_imm64_reg64((uintptr_t)(void*)&code_cache_find_slow, func_reg);
     x86asm_mov_reg32_reg32(pc_reg, tmp_reg_1);
     x86asm_mov_reg64_reg64(code_hash_reg, tmp_reg_2);
+    x86asm_mov_reg32_reg32(pc_reg, REG_ARG1);
+    x86asm_mov_imm64_reg64((uintptr_t)cache, REG_ARG0);
     x86asm_addq_imm8_reg(-32, RSP);
     x86asm_call_reg(func_reg);
     x86asm_addq_imm8_reg(32, RSP);
@@ -248,6 +255,7 @@ static void native_dispatch_emit(struct native_dispatch *disp, void *ctx_ptr,
 }
 
 void native_check_cycles_emit(struct native_dispatch *disp, void *ctx_ptr,
+                              struct code_cache *cache,
                               native_dispatch_compile_func compile_handler) {
     struct x86asm_lbl8 dont_return;
     x86asm_lbl8_init(&dont_return);
@@ -305,7 +313,7 @@ void native_check_cycles_emit(struct native_dispatch *disp, void *ctx_ptr,
 
     // call native_dispatch
     x86asm_mov_reg32_reg32(jump_reg, REG_ARG0);
-    native_dispatch_emit(disp, ctx_ptr, compile_handler);
+    native_dispatch_emit(disp, ctx_ptr, cache, compile_handler);
 
     x86asm_lbl8_cleanup(&dont_return);
 }

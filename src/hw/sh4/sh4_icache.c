@@ -72,7 +72,7 @@ SH4_ICACHE_READ_ADDR_ARRAY_TMPL(uint8_t, 8)
         /* V bit if that does nothing. */                               \
                                                                         \
         if (config_get_jit())                                           \
-            code_cache_invalidate_all();                                \
+            code_cache_invalidate_all(sh4->jit_code_cache);             \
     }
 
 SH4_ICACHE_WRITE_ADDR_ARRAY_TMPL(float, float)

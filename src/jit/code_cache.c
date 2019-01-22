@@ -37,38 +37,6 @@
 
 #include "code_cache.h"
 
-#define CODE_CACHE_HASH_TBL_SHIFT 16
-#define CODE_CACHE_HASH_TBL_LEN (1 << CODE_CACHE_HASH_TBL_SHIFT)
-#define CODE_CACHE_HASH_TBL_MASK (CODE_CACHE_HASH_TBL_LEN - 1)
-
-/*
- * This is a two-level cache.  The lower level is a binary search tree balanced
- * using the AVL algorithm.  The upper level is a hash-table.  Everything that
- * exists in the hash also exists in the tree, but not everything in the tree
- * exists in the hash.  When there is a collision in the hash, we discard
- * outdated values instead of trying to implement probing or chaining.
- */
-
-/*
- * oldroot points to a list of trees invalid nodes.
- *
- * When code_cache_invalidate_all gets called from within CPU context
- * (typically due to a write to the SH4 CCR), all nodes need to be deleted.
- * This is not possible to due within CPU context because that would delete the
- * node which is currently executed.  As a workaround, the entire tree is
- * relocated to the oldroot pointer so that its nodes can be freed later when
- * the emulator exits CPU context.
- */
-struct oldroot_node {
-    struct avl_tree tree;
-    struct oldroot_node *next;
-};
-static struct oldroot_node *oldroot;
-
-static struct avl_tree tree;
-
-struct cache_entry* code_cache_tbl[CODE_CACHE_HASH_TBL_LEN];
-
 /*
  * the maximum number of code-cache entries that can be created before the
  * cache assumes something is wrong.  This is completely arbitrary, and it may
@@ -86,25 +54,21 @@ struct cache_entry* code_cache_tbl[CODE_CACHE_HASH_TBL_LEN];
  * register.
  */
 #define MAX_ENTRIES (1024*1024)
-static unsigned n_entries;
-
-#ifdef ENABLE_JIT_X86_64
-static bool native_mode = true;
-#endif
 
 static struct avl_node*
 cache_entry_ctor(void *argptr) {
     struct cache_entry *ent = calloc(1, sizeof(struct cache_entry));
+    struct code_cache *cache = (struct code_cache*)argptr;
 
 #ifdef ENABLE_JIT_X86_64
-    if (native_mode)
+    if (cache->native)
         code_block_x86_64_init(&ent->blk.x86_64);
     else
 #endif
         code_block_intp_init(&ent->blk.intp);
 
-    n_entries++;
-    if (n_entries >= MAX_ENTRIES)
+    cache->n_entries++;
+    if (cache->n_entries >= MAX_ENTRIES)
         RAISE_ERROR(ERROR_INTEGRITY);
     return &ent->node;
 }
@@ -112,8 +76,10 @@ cache_entry_ctor(void *argptr) {
 static void
 cache_entry_dtor(struct avl_node *node, void *argptr) {
     struct cache_entry *ent = &AVL_DEREF(node, struct cache_entry, node);
+    struct code_cache *cache = (struct code_cache*)argptr;
+
 #ifdef ENABLE_JIT_X86_64
-    if (native_mode)
+    if (cache->native)
         code_block_x86_64_cleanup(&ent->blk.x86_64);
     else
 #endif
@@ -121,24 +87,26 @@ cache_entry_dtor(struct avl_node *node, void *argptr) {
     free(ent);
 }
 
-static void reinit_tree(void) {
-    avl_init(&tree, cache_entry_ctor, cache_entry_dtor, NULL);
+static void reinit_tree(struct code_cache *cache) {
+    avl_init(&cache->tree, cache_entry_ctor, cache_entry_dtor, cache);
 }
 
-void code_cache_init(void) {
-    reinit_tree();
+void code_cache_init(struct code_cache *cache, bool native) {
+    memset(cache, 0, sizeof(*cache));
+
+    reinit_tree(cache);
 
 #ifdef ENABLE_JIT_X86_64
-    native_mode = config_get_native_jit();
+    cache->native = native;
 #endif
 }
 
-void code_cache_cleanup(void) {
-    code_cache_invalidate_all();
-    code_cache_gc();
+void code_cache_cleanup(struct code_cache *cache) {
+    code_cache_invalidate_all(cache);
+    code_cache_gc(cache);
 }
 
-void code_cache_invalidate_all(void) {
+void code_cache_invalidate_all(struct code_cache *cache) {
     /*
      * this function gets called whenever something writes to the sh4 CCR.
      * Since we don't want to trash the block currently executing, we instead
@@ -157,17 +125,18 @@ void code_cache_invalidate_all(void) {
         (struct oldroot_node*)malloc(sizeof(struct oldroot_node));
     if (!list_node)
         RAISE_ERROR(ERROR_FAILED_ALLOC);
-    list_node->next = oldroot;
-    list_node->tree = tree;
-    oldroot = list_node;
+    list_node->next = cache->oldroot;
+    list_node->tree = cache->tree;
+    cache->oldroot = list_node;
 
-    reinit_tree();
-    memset(code_cache_tbl, 0, sizeof(code_cache_tbl));
+    reinit_tree(cache);
+    memset(cache->code_cache_tbl, 0, sizeof(cache->code_cache_tbl));
 
-    n_entries = 0;
+    cache->n_entries = 0;
 }
 
-void code_cache_gc(void) {
+void code_cache_gc(struct code_cache *cache) {
+    struct oldroot_node *oldroot = cache->oldroot;
     while (oldroot) {
         struct oldroot_node *next = oldroot->next;
         avl_cleanup(&oldroot->tree);
@@ -175,23 +144,26 @@ void code_cache_gc(void) {
         oldroot = next;
     }
 
+    cache->oldroot = NULL;
+
 #ifdef INVARIANTS
     exec_mem_check_integrity();
 #endif
 }
 
-struct cache_entry *code_cache_find(addr32_t addr) {
+struct cache_entry *code_cache_find(struct code_cache *cache, addr32_t addr) {
     unsigned hash_idx = addr & CODE_CACHE_HASH_TBL_MASK;
-    struct cache_entry *maybe = code_cache_tbl[hash_idx];
+    struct cache_entry *maybe = cache->code_cache_tbl[hash_idx];
     if (maybe && maybe->node.key == addr)
         return maybe;
 
-    struct cache_entry *ret = code_cache_find_slow(addr);
-    code_cache_tbl[hash_idx] = ret;
+    struct cache_entry *ret = code_cache_find_slow(cache, addr);
+    cache->code_cache_tbl[hash_idx] = ret;
     return ret;
 }
 
-struct cache_entry *code_cache_find_slow(addr32_t addr) {
-    struct avl_node *node = avl_find(&tree, addr);
+struct cache_entry *
+code_cache_find_slow(struct code_cache *cache, addr32_t addr) {
+    struct avl_node *node = avl_find(&cache->tree, addr);
     return &AVL_DEREF(node, struct cache_entry, node);
 }

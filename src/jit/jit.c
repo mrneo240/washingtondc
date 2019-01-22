@@ -35,11 +35,9 @@ void jit_init(struct dc_clock *clk) {
     exec_mem_init();
     native_mem_init();
 #endif
-    code_cache_init();
 }
 
 void jit_cleanup(void) {
-    code_cache_cleanup();
 #ifdef ENABLE_JIT_X86_64
     native_mem_cleanup();
     exec_mem_cleanup();

@@ -76,13 +76,15 @@ sh4_jit_compile_native(void *cpu, void *blk_ptr, uint32_t pc,
     struct code_block_x86_64 *blk = (struct code_block_x86_64*)blk_ptr;
     struct sh4_jit_compile_ctx ctx = { .last_inst_type = SH4_GROUP_NONE,
                                        .cycle_count = 0 };
+    struct Sh4 *sh4 = (struct Sh4*)cpu;
 
     il_code_block_init(&il_blk);
     sh4_jit_il_code_block_compile(cpu, &ctx, &il_blk, pc);
 #ifdef JIT_OPTIMIZE
     jit_determ_pass(&il_blk);
 #endif
-    code_block_x86_64_compile(cpu, blk, &il_blk, sh4_jit_compile_native,
+    code_block_x86_64_compile(cpu, blk, sh4->jit_code_cache, &il_blk,
+                              sh4_jit_compile_native,
                               ctx.cycle_count * SH4_CLOCK_SCALE, disp);
     il_code_block_cleanup(&il_blk);
 }

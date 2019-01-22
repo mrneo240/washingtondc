@@ -66,6 +66,7 @@ typedef enum Sh4ExecState Sh4ExecState;
 
 struct Sh4 {
     struct dc_clock *clk;
+    struct code_cache *jit_code_cache;
 
     Sh4ExecState exec_state;
 

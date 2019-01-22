@@ -682,7 +682,7 @@ sh4_ccr_write_handler(Sh4 *sh4,
                       struct Sh4MemMappedReg const *reg_info,
                       sh4_reg_val val) {
     if (config_get_jit())
-        code_cache_invalidate_all();
+        code_cache_invalidate_all(sh4->jit_code_cache);
     sh4->reg[SH4_REG_CCR] = val;
 }
 

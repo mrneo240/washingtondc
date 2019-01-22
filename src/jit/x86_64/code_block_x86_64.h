@@ -44,6 +44,7 @@ void code_block_x86_64_cleanup(struct code_block_x86_64 *blk);
 
 void code_block_x86_64_compile(void *cpu,
                                struct code_block_x86_64 *out,
+                               struct code_cache *cache,
                                struct il_code_block const *il_blk,
                                native_dispatch_compile_func compile_func,
                                unsigned cycle_count,
