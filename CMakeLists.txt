@@ -29,21 +29,36 @@ set(WashingtonDC_VERSION_MAJOR 0)
 set(WashingtonDC_VERSION_MINOR 1)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c11")
 
-set (LIBEVENT_LIB_PATH ${CMAKE_CURRENT_BINARY_DIR})
+option(ENABLE_DEBUGGER "Enable the debugger" ON)
+option(ENABLE_WATCHPOINTS "Enable debugger watchpoints" OFF)
+option(ENABLE_DBG_COND "enable debugger conditions" OFF)
+option(DBG_EXIT_ON_UNDEFINED_OPCODE "Bail out if the emulator hits an undefined opcode" OFF)
+option(INVARIANTS "runtime sanity checks that should never fail" OFF)
+option(SH4_FPU_PEDANTIC "enable FPU error-checking which most games *probably* don't use" OFF)
+option(PVR2_LOG_VERBOSE "enable this to make the pvr2 code log mundane events" OFF)
+option(DEEP_SYSCALL_TRACE "enable logging to observe the behavior of system calls" OFF)
+option(ENABLE_LOG_DEBUG "enable extra debug logs" OFF)
+option(ENABLE_JIT_X86_64 "enable native x86_64 JIT backend" ON)
+option(JIT_OPTIMIZE "enable optimization passes on the JIT that dont actually work" OFF)
+option(USE_LIBEVENT "implement serial server, commands, debugging via libevent" ON)
 
 if(NOT CMAKE_BUILD_TYPE)
        set(CMAKE_BUILD_TYPE Release)
        message("Setting CMAKE_BUILD_TYPE to Release by default")
 endif()
 
-ExternalProject_Add(
-        libevent
-        PREFIX washingtondc-libevent
-        GIT_REPOSITORY https://github.com/libevent/libevent
-        GIT_TAG release-2.1.8-stable
-        INSTALL_DIR ${LIBEVENT_LIB_PATH}
-        CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${LIBEVENT_LIB_PATH} -DEVENT__DISABLE_TESTS=On -DEVENT__DISABLE_REGRESS=On -DEVENT__DISABLE_BENCHMARK=On -DEVENT__DISABLE_OPENSSL=On -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-        BUILD_IN_SOURCE 1)
+if (USE_LIBEVENT)
+    set (LIBEVENT_LIB_PATH ${CMAKE_CURRENT_BINARY_DIR})
+
+    ExternalProject_Add(
+            libevent
+            PREFIX washingtondc-libevent
+            GIT_REPOSITORY https://github.com/libevent/libevent
+            GIT_TAG release-2.1.8-stable
+            INSTALL_DIR ${LIBEVENT_LIB_PATH}
+            CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${LIBEVENT_LIB_PATH} -DEVENT__DISABLE_TESTS=On -DEVENT__DISABLE_REGRESS=On -DEVENT__DISABLE_BENCHMARK=On -DEVENT__DISABLE_OPENSSL=On -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+            BUILD_IN_SOURCE 1)
+endif()
 
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
@@ -69,18 +84,6 @@ if(UNIX)
     # it exists to do.
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Werror -Wno-format-truncation")
 endif()
-
-option(ENABLE_DEBUGGER "Enable the debugger" ON)
-option(ENABLE_WATCHPOINTS "Enable debugger watchpoints" OFF)
-option(ENABLE_DBG_COND "enable debugger conditions" OFF)
-option(DBG_EXIT_ON_UNDEFINED_OPCODE "Bail out if the emulator hits an undefined opcode" OFF)
-option(INVARIANTS "runtime sanity checks that should never fail" OFF)
-option(SH4_FPU_PEDANTIC "enable FPU error-checking which most games *probably* don't use" OFF)
-option(PVR2_LOG_VERBOSE "enable this to make the pvr2 code log mundane events" OFF)
-option(DEEP_SYSCALL_TRACE "enable logging to observe the behavior of system calls" OFF)
-option(ENABLE_LOG_DEBUG "enable extra debug logs" OFF)
-option(ENABLE_JIT_X86_64 "enable native x86_64 JIT backend" ON)
-option(JIT_OPTIMIZE "enable optimization passes on the JIT that dont actually work" OFF)
 
 if (DBG_EXIT_ON_UNDEFINED_OPCODE)
    add_definitions(-DDBG_EXIT_ON_UNDEFINED_OPCODE)
@@ -436,8 +439,12 @@ set(include_dirs "${OPENGL_INCLUDE_DIR}"
                  "${PROJECT_SOURCE_DIR}/external"
                  "${PROJECT_SOURCE_DIR}/external/glfw/include"
                  "${libpng_path}"
-                 "${zlib_path}"
-                 "${CMAKE_BINARY_DIR}/washingtondc-libevent/src/libevent/include")
+                 "${zlib_path}")
+
+if (USE_LIBEVENT)
+   set(include_dirs "${include_dirs}"
+       "${CMAKE_BINARY_DIR}/washingtondc-libevent/src/libevent/include")
+endif()
 
 if (ENABLE_DEBUGGER)
   set(include_dirs "${include_dirs}"
@@ -461,8 +468,6 @@ add_test(NAME sh4tmu_test COMMAND ./sh4tmu_test.pl)
 
 add_executable(washingtondc ${washingtondc_sources})
 
-add_dependencies(washingtondc libevent sh4)
-add_dependencies(sh4 libevent)
 set(washingtondc_libs "m"
                       "sh4"
                       "rt"
@@ -471,8 +476,15 @@ set(washingtondc_libs "m"
                       "glfw"
                       "glew"
                       "${OPENGL_gl_LIBRARY}"
-                      "pthread"
-                      "${LIBEVENT_LIB_PATH}/lib/libevent.a")
+                      "pthread")
+
+add_dependencies(washingtondc sh4)
+if (USE_LIBEVENT)
+    add_dependencies(washingtondc libevent)
+    add_dependencies(sh4 libevent)
+    set(washingtondc_libs "${washingtondc_libs}"
+                          "${LIBEVENT_LIB_PATH}/lib/libevent.a")
+endif()
 
 if (ENABLE_DEBUGGER)
     set(washingtondc_libs "${washingtondc_libs}" capstone-static)
