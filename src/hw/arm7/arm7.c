@@ -593,7 +593,7 @@ static struct arm7_opcode {
     { NULL }
 };
 
-void arm7_decode(struct arm7 *arm7, struct arm7_decoded_inst *inst_out,
+static void arm7_decode(struct arm7 *arm7, struct arm7_decoded_inst *inst_out,
                  arm7_inst inst) {
     struct arm7_opcode const *curs = ops;
     while (curs->fn) {
