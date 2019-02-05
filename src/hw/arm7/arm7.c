@@ -625,13 +625,17 @@ void arm7_fetch_inst(struct arm7 *arm7, struct arm7_decoded_inst *inst_out) {
     uint32_t pc = arm7->reg[ARM7_REG_PC];
 
     if (!arm7->pipeline_full) {
+        uint32_t pc_next = pc + 4;
+        uint32_t inst = do_fetch_inst(arm7, pc);
+        uint32_t inst_next = do_fetch_inst(arm7, pc_next);
+
         cycle_count = 2;
 
-        arm7->pipeline_pc[0] = pc + 4;
-        arm7->pipeline[0] = do_fetch_inst(arm7, pc + 4);
+        arm7->pipeline_pc[0] = pc_next;
+        arm7->pipeline[0] = inst_next;
 
         arm7->pipeline_pc[1] = pc;
-        arm7->pipeline[1] = do_fetch_inst(arm7, pc);
+        arm7->pipeline[1] = inst;
 
         arm7->pipeline_full = true;
 
