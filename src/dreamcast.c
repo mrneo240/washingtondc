@@ -42,7 +42,7 @@
 #include "hw/maple/maple_device.h"
 #include "hw/maple/maple_controller.h"
 #include "cmd/cons.h"
-#include "glfw/window.h"
+#include "window.h"
 #include "hw/pvr2/framebuffer.h"
 #include "hw/pvr2/pvr2_tex_mem.h"
 #include "hw/pvr2/pvr2_ta.h"

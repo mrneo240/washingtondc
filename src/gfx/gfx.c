@@ -31,7 +31,7 @@
 #include <GL/glew.h>
 #include <GL/gl.h>
 
-#include "glfw/window.h"
+#include "window.h"
 #include "dreamcast.h"
 #include "gfx/opengl/opengl_output.h"
 #include "gfx/opengl/opengl_target.h"
