@@ -23,8 +23,6 @@
 #ifndef CONTROL_BIND_H_
 #define CONTROL_BIND_H_
 
-#include <GLFW/glfw3.h>
-
 /*
  * For now you can only bind one host-key to one guest-key, which is kinda lame.
  * In the future we'll let people bind N host keys to one guest key.
@@ -51,7 +49,7 @@ struct host_gamepad_hat {
 };
 
 struct host_kbd_ctrl {
-    GLFWwindow *win;
+    void *win;
     // glfw key identifier
     int key;
 };

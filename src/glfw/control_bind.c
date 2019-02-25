@@ -23,6 +23,7 @@
 #include <ctype.h>
 #include <string.h>
 #include <stdlib.h>
+#include <GLFW/glfw3.h>
 
 #include "fifo.h"
 
@@ -143,7 +144,7 @@ static bool ctrl_get_gamepad_button_state(struct host_gamepad_btn const *btn) {
 }
 
 static bool ctrl_get_kbd_button_state(struct host_kbd_ctrl const *btn) {
-    return glfwGetKey(btn->win, btn->key) == GLFW_PRESS;
+    return glfwGetKey((GLFWwindow*)btn->win, btn->key) == GLFW_PRESS;
 }
 
 static bool ctrl_get_gamepad_hat_state(struct host_gamepad_hat const *btn) {
@@ -180,7 +181,7 @@ static float ctrl_get_gamepad_axis_state(struct host_gamepad_btn const *btn) {
 }
 
 static float ctrl_get_kbd_axis_state(struct host_kbd_ctrl const *btn) {
-    if (glfwGetKey(btn->win, btn->key) == GLFW_PRESS)
+    if (glfwGetKey((GLFWwindow*)btn->win, btn->key) == GLFW_PRESS)
         return 1.0f;
     return -1.0f;
 }
