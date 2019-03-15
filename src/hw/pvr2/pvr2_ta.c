@@ -188,7 +188,7 @@ static void unpack_rgba_8888(uint32_t const *ta_fifo32, float *rgba, uint32_t in
  * If this value is too low, it will trigger race conditions in certain games
  * which can cause them to miss interrupts.
  */
-#define PVR2_RENDER_COMPLETE_INT_DELAY (SCHED_FREQUENCY / 1024)
+#define PVR2_RENDER_COMPLETE_INT_DELAY (SCHED_FREQUENCY / (1024 * 2))
 
 static void pvr2_render_complete_int_event_handler(struct SchedEvent *event);
 
@@ -203,7 +203,7 @@ static void pvr2_render_complete_int_event_handler(struct SchedEvent *event);
  * which can cause them to miss interrupts.
  *
  */
-#define PVR2_LIST_COMPLETE_INT_DELAY (SCHED_FREQUENCY / 1024)
+#define PVR2_LIST_COMPLETE_INT_DELAY (SCHED_FREQUENCY / (1024 * 5))
 
 static void pvr2_op_complete_int_event_handler(struct SchedEvent *event);
 static void pvr2_op_mod_complete_int_event_handler(struct SchedEvent *event);
