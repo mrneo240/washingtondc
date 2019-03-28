@@ -7,3 +7,6 @@
 [submodule "external/capstone"]
 	path = external/capstone
 	url = https://github.com/aquynh/capstone
+[submodule "external/cimgui"]
+	path = external/cimgui
+	url = https://github.com/cimgui/cimgui
