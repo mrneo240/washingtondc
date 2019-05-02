@@ -1352,7 +1352,9 @@ static unsigned aica_chan_effective_rate(struct aica const *aica, unsigned chan_
     if (chan->krs == 15) {
         return rate * 2;
     } else {
-        return (chan->krs + get_octave_signed(chan) + rate) * 2 + ((chan->fns >> 9) & 1);
+        unsigned eff = (chan->krs + rate) * 2 + ((chan->fns >> 9) & 1) + ((chan->octave ^ 8)/* -8 */);
+        printf("%s - EFFECTIVE RATE IS 0x%08x\n", __func__, eff);
+        return eff;
     }
 }
 
@@ -1572,13 +1574,25 @@ static inline int32_t add_sample32(int32_t s1, int32_t s2) {
 }
 
 static double get_sample_rate_multiplier(struct aica_chan const *chan) {
-    unsigned phaseinc = (chan->fns ^ 0x400);
-    int oct = get_octave_signed(chan);
-    if (oct > 0)
-        phaseinc <<= oct;
-    else
-        phaseinc >>= -oct;
-    return phaseinc / (double)0x400;
+    /* unsigned phaseinc = (chan->fns ^ 0x400); */
+    /* int oct = get_octave_signed(chan); */
+    /* unsigned oct = (chan->octave^8); */
+    /* if (oct > 0) */
+        /* phaseinc <<= oct; */
+    /* else */
+    /*     phaseinc >>= -oct; */
+    /* return phaseinc / (double)0x40000; */
+
+    double mantissa = (chan->fns ^ 0x400) / 1024.0;
+    int log = (chan->octave^8)-8;
+    double mult = 1.0;
+    if (log > 0)
+        for (int idx = 0; idx < log; idx++)
+            mult *= 2.0;
+    else if (log < 0)
+        for (int idx = 0; idx < -log; idx++)
+            mult *= 0.5;
+    return mult * mantissa;
 }
 
 static int get_octave_signed(struct aica_chan const *chan) {
