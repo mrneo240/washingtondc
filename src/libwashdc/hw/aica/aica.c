@@ -243,7 +243,9 @@ static unsigned aica_chan_effective_rate(struct aica const *aica, unsigned chan_
 
 static unsigned aica_samples_per_step(unsigned effective_rate, unsigned step_no);
 
-static void aica_process_sample(struct aica *aica);
+static void
+aica_process_samples(struct aica *aica,
+                     washdc_sample_type *buf, unsigned n_samples);
 
 static int get_octave_signed(struct aica_chan const *chan);
 static double get_sample_rate_multiplier(struct aica_chan const *chan);
@@ -1323,8 +1325,23 @@ static void aica_sync(struct aica *aica) {
         dc_cycle_stamp_t n_samples = AICA_FREQ_RATIO *
             (aica_get_sample_count(aica) - aica->last_sample_sync);
 
-        while (n_samples--)
-            aica_process_sample(aica);
+        /*
+         * the sample buffer len is completely arbitrary, it does
+         * not have to correspond to anything else
+         */
+#define AICA_SYNC_SAMPLE_BUF_LEN 44100
+        static washdc_sample_type sample[AICA_SYNC_SAMPLE_BUF_LEN];
+        while (n_samples) {
+            int samples_to_process;
+            if (n_samples < AICA_SYNC_SAMPLE_BUF_LEN)
+                samples_to_process = n_samples;
+            else
+                samples_to_process = AICA_SYNC_SAMPLE_BUF_LEN;
+
+            aica_process_samples(aica, sample, samples_to_process);
+
+            n_samples -= samples_to_process;
+        }
 
         aica->last_sample_sync = aica_get_sample_count(aica);
     }
@@ -1829,14 +1846,16 @@ static void chan_process_samples(struct aica *aica, unsigned chan_no,
     }
 }
 
-static void aica_process_sample(struct aica *aica) {
-    washdc_sample_type sample_total = 0;
+static void
+aica_process_samples(struct aica *aica,
+                     washdc_sample_type *buf, unsigned n_samples) {
+    memset(buf, 0, sizeof(washdc_sample_type) * n_samples);
 
     unsigned chan_no;
     for (chan_no = 0; chan_no < AICA_CHAN_COUNT; chan_no++)
-        chan_process_samples(aica, chan_no, &sample_total, 1);
+        chan_process_samples(aica, chan_no, buf, n_samples);
 
-    dc_submit_sound_samples(&sample_total, 1);
+    dc_submit_sound_samples(buf, n_samples);
 }
 
 static void raise_aica_sh4_int(struct aica *aica) {
