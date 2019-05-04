@@ -64,7 +64,7 @@ void init(void) {
         error_set_portaudio_error_text(Pa_GetErrorText(err));
         RAISE_ERROR(ERROR_EXT_FAILURE);
     }
-    err = Pa_OpenDefaultStream(&snd_stream, 0, 2, paInt32, 44100,
+    err = Pa_OpenDefaultStream(&snd_stream, 0, 2, paInt32, 44100*1,
                                paFramesPerBufferUnspecified,
                                snd_cb, NULL);
     if (err != paNoError) {
