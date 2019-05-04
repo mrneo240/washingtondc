@@ -1598,82 +1598,75 @@ static int get_octave_signed(struct aica_chan const *chan) {
     return (oct_signed ^ 8) - 8;
 }
 
-static void aica_process_sample(struct aica *aica) {
-    unsigned chan_no;
+static void chan_increment(struct aica_chan *chan, unsigned effective_rate,
+                           unsigned samples_per_step) {
+    chan->sample_no++;
+    if (samples_per_step && chan->sample_no >= samples_per_step) {
+        unsigned step_mod = chan->step_no % 4;
+        unsigned rate_idx;
+        if (effective_rate >= 0x30 && effective_rate <= 0x3c)
+            rate_idx = effective_rate - 0x30;
+        else if (effective_rate < 0x30)
+            rate_idx = 0;
+        else
+            rate_idx = 0x3c - 0x30;
 
-    int32_t sample_total = 0;
+        if (chan->atten_env_state == AICA_ENV_ATTACK) {
+            chan->atten -=
+                (chan->atten >> attack_step_delta[rate_idx][step_mod]) + 1;
+            if (!chan->atten) {
+                chan->atten_env_state = AICA_ENV_DECAY;
+            }
+        } else {
+            chan->atten += decay_step_delta[rate_idx][step_mod];
 
-    for (chan_no = 0; chan_no < AICA_CHAN_COUNT; chan_no++) {
-        struct aica_chan *chan = aica->channels + chan_no;
+            if (chan->atten >= 0x3bf)
+                chan->atten = 0x1fff;
 
-        if (!chan->playing)
-            continue;
+            if (chan->atten_env_state == AICA_ENV_DECAY) {
+                if (chan->atten >= chan->decay_level)
+                    chan->atten_env_state = AICA_ENV_SUSTAIN;
+            } else {
+                // sustain or release
+                if (chan->atten >= 0x3bf)
+                    chan->playing = false;
+            }
+        }
 
-        double sample_rate = get_sample_rate_multiplier(chan) / (double)AICA_FREQ_RATIO;
-        unsigned effective_rate = aica_chan_effective_rate(aica, chan_no);
-        unsigned samples_per_step = aica_samples_per_step(effective_rate,
-                                                          chan->step_no);
+        chan->sample_no = 0;
+        chan->step_no++;
+    }
+}
 
-        // TODO: I'm probably not handling sample_rate > 1.0 correctly
+static void
+chan_process_samples_16(struct aica *aica, unsigned chan_no,
+                        washdc_sample_type *samples, unsigned count) {
+    struct aica_chan *chan = aica->channels + chan_no;
+    double sample_rate =
+        get_sample_rate_multiplier(chan) / (double)AICA_FREQ_RATIO;
+    unsigned effective_rate = aica_chan_effective_rate(aica, chan_no);
+    unsigned samples_per_step = aica_samples_per_step(effective_rate,
+                                                      chan->step_no);
+
+    // TODO: I'm probably not handling sample_rate > 1.0 correctly
+    while (count--) {
+        int32_t sample =
+            (int32_t)(int16_t)aica_wave_mem_read_16(chan->addr_cur,
+                                                    &aica->mem);
+        sample <<= 12;
+
+        // TODO: linear interpolation
+        *samples = add_sample32(*samples, sample);
+
+        chan->sample_partial += sample_rate;
         bool did_increment = false;
-        if (chan->fmt == AICA_FMT_16_BIT_SIGNED) {
-            int32_t sample =
-                (int32_t)(int16_t)aica_wave_mem_read_16(chan->addr_cur,
-                                                        &aica->mem);
-            sample <<= 12;
-
-            // TODO: linear interpolation
-            sample_total = add_sample32(sample_total, sample);
-
-            chan->sample_partial += sample_rate;
-            while (chan->sample_partial >= 1.0) {
+        if (chan->sample_partial >= 1.0) {
+            do {
                 chan->sample_partial -= 1.0;
                 chan->addr_cur += 2;
                 chan->sample_pos++;
-                did_increment = true;
-            }
-        } else if (chan->fmt == AICA_FMT_8_BIT_SIGNED) {
-            int32_t sample =
-                (int32_t)(int8_t)aica_wave_mem_read_8(chan->addr_cur,
-                                                      &aica->mem);
-            sample <<= 16;
-
-            // TODO: linear interpolation
-            sample_total = add_sample32(sample_total, sample);
-
-            chan->sample_partial += sample_rate;
-            while (chan->sample_partial >= 1.0) {
-                chan->sample_partial -= 1.0;
-                chan->addr_cur++;
-                chan->sample_pos++;
-                did_increment = true;
-            }
-        } else {
-            // 4-bit ADPCM
-            if (chan->adpcm_next_step) {
-                uint8_t sample = aica_wave_mem_read_8(chan->addr_cur, &aica->mem);
-                if (chan->sample_pos & 1)
-                    sample = (sample >> 4) & 0xf;
-                else
-                    sample &= 0xf;
-
-                chan->adpcm_sample =
-                    (int32_t)adpcm_yamaha_expand_nibble(chan, sample);
-                chan->adpcm_next_step = false;
-            }
-
-            sample_total = add_sample32(sample_total, chan->adpcm_sample << 8);
-
-            chan->sample_partial += sample_rate;
-            if (chan->sample_partial >= 1.0) {
-                chan->sample_partial -= 1.0;
-                if (chan->sample_pos & 1) {
-                    chan->addr_cur++;
-                }
-                chan->sample_pos++;
-                did_increment = true;
-                chan->adpcm_next_step = true;
-            }
+             } while (chan->sample_partial >= 1.0);
+            did_increment = true;
         }
 
         if (chan->sample_pos > chan->loop_end) {
@@ -1692,45 +1685,156 @@ static void aica_process_sample(struct aica *aica) {
             }
         }
 
-        if (did_increment) {
-            chan->sample_no++;
-            if (samples_per_step && chan->sample_no >= samples_per_step) {
-                unsigned step_mod = chan->step_no % 4;
-                unsigned rate_idx;
-                if (effective_rate >= 0x30 && effective_rate <= 0x3c)
-                    rate_idx = effective_rate - 0x30;
-                else if (effective_rate < 0x30)
-                    rate_idx = 0;
-                else
-                    rate_idx = 0x3c - 0x30;
+        if (did_increment)
+            chan_increment(chan, effective_rate, samples_per_step);
 
-                if (chan->atten_env_state == AICA_ENV_ATTACK) {
-                    chan->atten -=
-                        (chan->atten >> attack_step_delta[rate_idx][step_mod]) + 1;
-                    if (!chan->atten) {
-                        chan->atten_env_state = AICA_ENV_DECAY;
-                    }
-                } else {
-                    chan->atten += decay_step_delta[rate_idx][step_mod];
+        samples++;
+    }
+}
 
-                    if (chan->atten >= 0x3bf)
-                        chan->atten = 0x1fff;
+static void
+chan_process_samples_8(struct aica *aica, unsigned chan_no,
+                        washdc_sample_type *samples, unsigned count) {
+    struct aica_chan *chan = aica->channels + chan_no;
+    double sample_rate =
+        get_sample_rate_multiplier(chan) / (double)AICA_FREQ_RATIO;
+    unsigned effective_rate = aica_chan_effective_rate(aica, chan_no);
+    unsigned samples_per_step = aica_samples_per_step(effective_rate,
+                                                      chan->step_no);
 
-                    if (chan->atten_env_state == AICA_ENV_DECAY) {
-                        if (chan->atten >= chan->decay_level)
-                            chan->atten_env_state = AICA_ENV_SUSTAIN;
-                    } else {
-                        // sustain or release
-                        if (chan->atten >= 0x3bf)
-                            chan->playing = false;
-                    }
-                }
+    // TODO: I'm probably not handling sample_rate > 1.0 correctly
+    while (count--) {
+        int32_t sample =
+            (int32_t)(int8_t)aica_wave_mem_read_8(chan->addr_cur,
+                                                  &aica->mem);
+        sample <<= 16;
 
-                chan->sample_no = 0;
-                chan->step_no++;
+        // TODO: linear interpolation
+        *samples = add_sample32(*samples, sample);
+
+        chan->sample_partial += sample_rate;
+        bool did_increment = false;
+        if (chan->sample_partial >= 1.0) {
+            do {
+                chan->sample_partial -= 1.0;
+                chan->addr_cur++;
+                chan->sample_pos++;
+            } while (chan->sample_partial >= 1.0);
+            did_increment = true;
+        }
+
+
+        if (chan->sample_pos > chan->loop_end) {
+            aica_chan_reset_adpcm(chan);
+
+            if (!chan->loop_end_signaled)
+                chan->loop_end_playstatus_flag = true;
+
+            if (chan->loop_en) {
+                chan->sample_pos = chan->loop_start;
+                chan->addr_cur = chan->addr_start + chan->loop_start * 2;
+            } else {
+                chan->sample_pos = chan->loop_end;
+                chan->addr_cur = chan->loop_end;
+                chan->loop_end_signaled = true;
             }
         }
+
+        if (did_increment)
+            chan_increment(chan, effective_rate, samples_per_step);
+
+        samples++;
     }
+}
+
+static void
+chan_process_samples_adpcm(struct aica *aica, unsigned chan_no,
+                           washdc_sample_type *samples, unsigned count) {
+    struct aica_chan *chan = aica->channels + chan_no;
+    double sample_rate =
+        get_sample_rate_multiplier(chan) / (double)AICA_FREQ_RATIO;
+    unsigned effective_rate = aica_chan_effective_rate(aica, chan_no);
+    unsigned samples_per_step = aica_samples_per_step(effective_rate,
+                                                      chan->step_no);
+
+    // TODO: I'm probably not handling sample_rate > 1.0 correctly
+    while (count--) {
+        if (chan->adpcm_next_step) {
+            uint8_t sample = aica_wave_mem_read_8(chan->addr_cur, &aica->mem);
+            if (chan->sample_pos & 1)
+                sample = (sample >> 4) & 0xf;
+            else
+                sample &= 0xf;
+
+            chan->adpcm_sample =
+                (int32_t)adpcm_yamaha_expand_nibble(chan, sample);
+            chan->adpcm_next_step = false;
+        }
+
+        *samples = add_sample32(*samples, chan->adpcm_sample << 8);
+
+        chan->sample_partial += sample_rate;
+        bool did_increment = false;
+        if (chan->sample_partial >= 1.0) {
+            chan->sample_partial -= 1.0;
+            if (chan->sample_pos & 1) {
+                chan->addr_cur++;
+            }
+            chan->sample_pos++;
+            chan->adpcm_next_step = true;
+            did_increment = true;
+        }
+
+
+        if (chan->sample_pos > chan->loop_end) {
+            aica_chan_reset_adpcm(chan);
+
+            if (!chan->loop_end_signaled)
+                chan->loop_end_playstatus_flag = true;
+
+            if (chan->loop_en) {
+                chan->sample_pos = chan->loop_start;
+                chan->addr_cur = chan->addr_start + chan->loop_start * 2;
+            } else {
+                chan->sample_pos = chan->loop_end;
+                chan->addr_cur = chan->loop_end;
+                chan->loop_end_signaled = true;
+            }
+        }
+
+        if (did_increment)
+            chan_increment(chan, effective_rate, samples_per_step);
+
+        samples++;
+    }
+}
+
+static void chan_process_samples(struct aica *aica, unsigned chan_no,
+                                 washdc_sample_type *samples, unsigned count) {
+    struct aica_chan *chan = aica->channels + chan_no;
+
+    if (!chan->playing)
+        return;
+
+    switch (chan->fmt) {
+    case AICA_FMT_16_BIT_SIGNED:
+        chan_process_samples_16(aica, chan_no, samples, count);
+        break;
+    case AICA_FMT_8_BIT_SIGNED:
+        chan_process_samples_8(aica, chan_no, samples, count);
+        break;
+    default:
+    case AICA_FMT_4_BIT_ADPCM:
+        chan_process_samples_adpcm(aica, chan_no, samples, count);
+    }
+}
+
+static void aica_process_sample(struct aica *aica) {
+    washdc_sample_type sample_total = 0;
+
+    unsigned chan_no;
+    for (chan_no = 0; chan_no < AICA_CHAN_COUNT; chan_no++)
+        chan_process_samples(aica, chan_no, &sample_total, 1);
 
     dc_submit_sound_samples(&sample_total, 1);
 }
