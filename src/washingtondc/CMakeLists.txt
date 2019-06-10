@@ -134,9 +134,9 @@ set(washingtondc_libs "m"
                       "pthread"
                       "portaudio")
 
-#if (USE_LIBEVENT)
+if (USE_LIBEVENT)
     set(washingtondc_libs "${washingtondc_libs}" "${LIBEVENT_LIB_PATH}/lib/libevent.a")
-#endif()
+endif()
 
 if (ENABLE_DEBUGGER)
     set(washingtondc_libs "${washingtondc_libs}" capstone-static)
