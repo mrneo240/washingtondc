@@ -20,6 +20,10 @@
  *
  ******************************************************************************/
 
+#ifdef _WIN32
+#include <Windows.h>
+#endif
+
 #include <ctype.h>
 #include <stdio.h>
 #include <string.h>
@@ -185,14 +189,9 @@ static void cfg_create_default_config(void) {
 
     LOG_INFO("Attempting to create configuration directory \"%s\"\n",
              cfg_file_dir);
-    if (mkdir(cfg_file_dir, S_IRUSR | S_IWUSR | S_IXUSR) != 0) {
-        if (errno == EEXIST) {
-            LOG_INFO("The directory already exists, I'm going to assume that's "
-                     "a good thing...\n");
-        } else {
-            LOG_ERROR("Unable to create %s: %s\n", cfg_file_dir, strerror(errno));
-            return;
-        }
+    if (hostfile_create_dir(cfg_file_dir) != 0) {
+        LOG_ERROR("Unable to create %s: %s\n", cfg_file_dir, strerror(errno));
+        return;
     }
 
     FILE *cfg_file = fopen(cfg_file_path, "w");

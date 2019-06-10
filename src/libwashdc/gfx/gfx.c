@@ -23,7 +23,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>
-#include <err.h>
 #include <stdbool.h>
 
 #define GL3_PROTOTYPES 1

@@ -35,4 +35,6 @@ void hostfile_path_append(char *dst, char const *src, size_t dst_sz);
 
 void hostfile_create_screenshot_dir(void);
 
+int hostfile_create_dir(char const *path);
+
 #endif

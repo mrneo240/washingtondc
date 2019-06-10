@@ -25,7 +25,7 @@
 
 #include "emit_x86_64.h"
 
-#ifdef __CYGWIN__
+#if defined(__CYGWIN__) || defined(_WIN32)
 #define ABI_MICROSOFT
 #endif
 
@@ -63,6 +63,10 @@
 #define REG_ARG1 RDX
 #define REG_ARG2 R8
 #define REG_ARG3 R9
+
+#else
+
+#error unknown ABI
 
 #endif
 

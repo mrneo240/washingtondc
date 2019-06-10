@@ -19,6 +19,11 @@
  *
  *
  ******************************************************************************/
+
+#ifdef _WIN32
+#include <Windows.h>
+#endif
+
 #include <sys/stat.h>
 #include <string.h>
 #include <stddef.h>
@@ -143,9 +148,27 @@ char const *hostfile_screenshot_dir(void) {
 
 void hostfile_create_screenshot_dir(void) {
     char const *data_dir = hostfile_data_dir();
-    if (mkdir(data_dir, S_IRUSR | S_IWUSR | S_IXUSR) != 0 && errno != EEXIST)
+    if (hostfile_create_dir(data_dir) != 0)
         LOG_ERROR("%s - failure to create %s\n", __func__, data_dir);
     char const *screenshot_dir = hostfile_screenshot_dir();
-    if (mkdir(screenshot_dir, S_IRUSR | S_IWUSR | S_IXUSR) != 0 && errno != EEXIST)
+    if (hostfile_create_dir(screenshot_dir) != 0)
         LOG_ERROR("%s - failure to create %s\n", __func__, data_dir);
 }
+
+int hostfile_create_dir(char const *path) {
+#ifdef _WIN32
+    return CreateDirectoryA(path, NULL) ? 0 : -1;
+#else
+    if (mkdir(path, S_IRUSR | S_IWUSR | S_IXUSR) != 0) {
+        if (errno == EEXIST) {
+            LOG_INFO("The directory already exists, I'm going to assume that's "
+                     "a good thing...\n");
+            return 0;
+        } else {
+            return -1;
+        }
+    }
+    return 0;
+#endif
+}
+
