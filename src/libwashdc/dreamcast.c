@@ -996,7 +996,7 @@ static bool run_to_next_sh4_event_jit_native(void *ctxt) {
 
     reg32_t newpc = sh4->reg[SH4_REG_PC];
 
-    newpc = sh4_native_dispatch_meta.entry(newpc);
+    newpc = sh4_native_dispatch_meta.entry(newpc, sh4_jit_hash(ctxt, newpc));
 
     sh4->reg[SH4_REG_PC] = newpc;
 
@@ -1012,7 +1012,7 @@ static bool run_to_next_sh4_event_jit(void *ctxt) {
 
     while (tgt_stamp > clock_cycle_stamp(&sh4_clock)) {
         addr32_t blk_addr = newpc;
-        struct cache_entry *ent = code_cache_find(blk_addr);
+        struct cache_entry *ent = code_cache_find(sh4_jit_hash(sh4, blk_addr));
 
         struct jit_code_block *blk = &ent->blk;
         struct code_block_intp *intp_blk = &blk->intp;
