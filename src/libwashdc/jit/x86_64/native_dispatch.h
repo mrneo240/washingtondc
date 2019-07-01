@@ -32,13 +32,20 @@
 #include "jit/jit_profile.h"
 #endif
 
+#define NATIVE_DISPATCH_PC_REG REG_ARG2
+#define NATIVE_DISPATCH_HASH_REG REG_ARG1
+
 void native_dispatch_init(struct dc_clock *clk);
 void native_dispatch_cleanup(void);
 
+// the uint32_t parameter is supposed to be a hash, not a PC pointer
 typedef uint32_t(*native_dispatch_entry_func)(uint32_t);
 
 struct jit_code_block;
 typedef void(*native_dispatch_compile_func)(void*,struct jit_code_block*,addr32_t);
+
+typedef struct jit_hash(*native_dispatch_hash_func)(void*,uint32_t);
+
 #ifdef JIT_PROFILE
 typedef
 void(*native_dispatch_profile_notify_func)(void*,

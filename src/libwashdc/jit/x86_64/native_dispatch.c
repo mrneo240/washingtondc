@@ -127,11 +127,13 @@ native_dispatch_entry_create(void *ctx_ptr,
     return entry;
 }
 
+#include "sh4_jit.h" // TODO: hack
+
 static struct cache_entry *
 dispatch_slow_path(uint32_t pc,
                    native_dispatch_compile_func compile_handler,
                    void *ctx_ptr) {
-    struct cache_entry *entry = code_cache_find_slow(pc);
+    struct cache_entry *entry = code_cache_find_slow(sh4_jit_hash((struct Sh4*)ctx_ptr, pc));
 
     code_cache_tbl[pc & CODE_CACHE_HASH_TBL_MASK] = entry;
 
@@ -148,7 +150,8 @@ static void native_dispatch_emit(void *ctx_ptr,
     struct x86asm_lbl8 code_cache_slow_path, have_valid_ent;
 
     /*
-     * BEFORE CALLING THIS FUNCTION, EDI MUST HOLD THE 32-BIT SH4 PC ADDRESS
+     * BEFORE CALLING THIS FUNCTION, REG_ARG0 MUST HOLD THE 32-BIT CODE HASH
+     * VALUE.
      * THIS IS THE ONLY PARAMETER EXPECTED BY THIS FUNCTION.
      * THE CODE EMITTED BY THIS FUNCTION WILL NOT RETURN.
      *
@@ -162,7 +165,7 @@ static void native_dispatch_emit(void *ctx_ptr,
      */
 
     // 32-bit SH4 PC address
-    static unsigned const pc_reg = REG_ARG0;
+    static unsigned const hash_reg = REG_ARG0;
     static unsigned const cachep_reg = REG_NONVOL0;
     static unsigned const tmp_reg_1 = REG_NONVOL1;
     static unsigned const native_reg = REG_NONVOL2;
@@ -174,7 +177,7 @@ static void native_dispatch_emit(void *ctx_ptr,
     x86asm_lbl8_init(&code_cache_slow_path);
     x86asm_lbl8_init(&have_valid_ent);
 
-    x86asm_mov_reg32_reg32(pc_reg, code_hash_reg);
+    x86asm_mov_reg32_reg32(hash_reg, code_hash_reg);
     x86asm_andl_imm32_reg32(CODE_CACHE_HASH_TBL_MASK, code_hash_reg);
 
     x86asm_movq_sib_reg(code_cache_tbl_ptr_reg, 8, code_hash_reg, cachep_reg);
@@ -183,7 +186,7 @@ static void native_dispatch_emit(void *ctx_ptr,
     x86asm_testq_reg64_reg64(cachep_reg, cachep_reg);
     x86asm_jz_lbl8(&code_cache_slow_path);
 
-    // now check the address against the one that's still in pc_reg
+    // now check the address against the one that's still in hash_reg
     size_t const addr_offs = offsetof(struct cache_entry, node.key);
     if (addr_offs >= 256)
         RAISE_ERROR(ERROR_INTEGRITY); // this will never happen
@@ -194,7 +197,7 @@ static void native_dispatch_emit(void *ctx_ptr,
         RAISE_ERROR(ERROR_INTEGRITY); // this will never happen
     x86asm_movq_disp8_reg_reg(native_offs, cachep_reg, native_reg);
 
-    x86asm_cmpl_reg32_reg32(tmp_reg_1, pc_reg);
+    x86asm_cmpl_reg32_reg32(tmp_reg_1, hash_reg);
     x86asm_jnz_lbl8(&code_cache_slow_path);// not equal
 
     x86asm_lbl8_define(&have_valid_ent);
@@ -204,14 +207,14 @@ static void native_dispatch_emit(void *ctx_ptr,
     // call jit_profile_notify
     size_t const jit_profile_offs = offsetof(struct cache_entry, blk.profile);
 
-    x86asm_mov_reg32_reg32(pc_reg, tmp_reg_1);
+    x86asm_mov_reg32_reg32(hash_reg, tmp_reg_1);
 
     x86asm_mov_imm64_reg64((uintptr_t)ctx_ptr, REG_ARG0);
     x86asm_movq_disp8_reg_reg(jit_profile_offs, cachep_reg, REG_ARG1);
     x86asm_mov_imm64_reg64((uintptr_t)(void*)meta.profile_notify, func_reg);
     x86asm_call_reg(func_reg);
 
-    x86asm_mov_reg32_reg32(tmp_reg_1, pc_reg);
+    x86asm_mov_reg32_reg32(tmp_reg_1, hash_reg);
 #endif
 
     // the native pointer now resides in RDX
@@ -220,7 +223,7 @@ static void native_dispatch_emit(void *ctx_ptr,
 
     x86asm_lbl8_define(&code_cache_slow_path);
 
-    // PC is still in pc_reg, which is REG_ARG0
+    // hash is still in hash_reg, which is REG_ARG0
     x86asm_mov_imm64_reg64((uintptr_t)(void*)dispatch_slow_path, func_reg);
     x86asm_mov_imm64_reg64((uintptr_t)(void*)meta.on_compile, REG_ARG1);
     x86asm_mov_imm64_reg64((uintptr_t)ctx_ptr, REG_ARG2);
@@ -245,7 +248,8 @@ void native_check_cycles_emit(void *ctx_ptr,
 
     static unsigned const sched_tgt_reg = REG_NONVOL0;
     static unsigned const cycle_count_reg = REG_ARG0;
-    static unsigned const jump_reg = REG_ARG1;
+    static unsigned const new_pc_reg = NATIVE_DISPATCH_PC_REG;
+    static unsigned const hash_reg = NATIVE_DISPATCH_HASH_REG;
     static unsigned const cycle_stamp_reg = REG_RET;
     static unsigned const ret_reg = REG_RET;
 
@@ -259,7 +263,7 @@ void native_check_cycles_emit(void *ctx_ptr,
     store_quad_from_reg(cycle_stamp, cycle_count_reg, REG_VOL1);
 
     // call native_dispatch
-    x86asm_mov_reg32_reg32(jump_reg, REG_ARG0);
+    x86asm_mov_reg32_reg32(hash_reg, REG_ARG0);
     native_dispatch_emit(ctx_ptr, meta);
 
     /*
@@ -270,7 +274,7 @@ void native_check_cycles_emit(void *ctx_ptr,
     x86asm_lbl8_define(&do_return);
 
     // return PC
-    x86asm_mov_reg32_reg32(jump_reg, ret_reg);
+    x86asm_mov_reg32_reg32(new_pc_reg, ret_reg);
 
     // store sched_tgt into cycle_stamp
     store_quad_from_reg(cycle_stamp, sched_tgt_reg, REG_VOL1);

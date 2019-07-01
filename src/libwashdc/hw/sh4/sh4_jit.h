@@ -31,6 +31,7 @@
 #include "sh4_read_inst.h"
 #include "jit/jit_il.h"
 #include "jit/code_block.h"
+#include "jit/code_cache.h"
 
 #ifdef JIT_PROFILE
 #include "jit/jit_profile.h"
@@ -54,6 +55,12 @@ struct sh4_jit_compile_ctx {
     unsigned last_inst_type;
     unsigned cycle_count;
 };
+
+#define SH4_JIT_HASH_MASK 0x1fffffff
+
+static inline jit_hash sh4_jit_hash(void *sh4, uint32_t addr) {
+    return addr & SH4_JIT_HASH_MASK;
+}
 
 bool
 sh4_jit_compile_inst(struct Sh4 *sh4, struct sh4_jit_compile_ctx *ctx,
