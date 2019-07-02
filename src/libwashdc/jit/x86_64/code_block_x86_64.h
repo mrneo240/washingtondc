@@ -25,7 +25,7 @@
 
 #include <stdint.h>
 
-#include "native_dispatch.h"
+struct native_dispatch_meta;
 
 #ifndef ENABLE_JIT_X86_64
 #error this file should not be built when the x86_64 JIT backend is disabled

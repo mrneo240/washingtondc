@@ -39,6 +39,7 @@
 
 #ifdef ENABLE_JIT_X86_64
 #include "jit/x86_64/code_block_x86_64.h"
+#include "jit/x86_64/native_dispatch.h"
 #endif
 
 struct InstOpcode;
@@ -104,7 +105,8 @@ static struct native_dispatch_meta const sh4_native_dispatch_meta = {
 #ifdef JIT_PROFILE
     .profile_notify = sh4_jit_profile_notify,
 #endif
-    .on_compile = sh4_jit_compile_native
+    .on_compile = sh4_jit_compile_native,
+    .hash_func = sh4_jit_hash
 };
 
 static inline void
