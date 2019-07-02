@@ -28,6 +28,7 @@
 #include "washdc/types.h"
 #include "dc_sched.h"
 #include "abi.h"
+#include "jit/code_cache.h"
 
 #ifdef JIT_PROFILE
 #include "jit/jit_profile.h"
@@ -50,7 +51,7 @@ typedef
 void(*native_dispatch_compile_func)(void*,struct native_dispatch_meta const*,
                                     struct jit_code_block*,addr32_t);
 
-typedef struct jit_hash(*native_dispatch_hash_func)(void*,uint32_t);
+typedef jit_hash(*native_dispatch_hash_func)(void*,uint32_t);
 
 #ifdef JIT_PROFILE
 typedef
@@ -88,6 +89,8 @@ struct native_dispatch_meta {
      * code.
      */
     native_dispatch_entry_func entry;
+
+    native_dispatch_hash_func hash_func; //user-specified
 };
 
 /*

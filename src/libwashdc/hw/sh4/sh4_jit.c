@@ -41,7 +41,8 @@ struct native_dispatch_meta const sh4_native_dispatch_meta = {
 #ifdef JIT_PROFILE
     .profile_notify = sh4_jit_profile_notify,
 #endif
-    .on_compile = sh4_jit_compile_native
+    .on_compile = sh4_jit_compile_native,
+    .hash_func = sh4_jit_hash
 };
 
 void sh4_jit_set_native_dispatch_meta(struct native_dispatch_meta *meta) {
@@ -49,6 +50,7 @@ void sh4_jit_set_native_dispatch_meta(struct native_dispatch_meta *meta) {
     meta->profile_notify = sh4_jit_profile_notify;
 #endif
     meta->on_compile = sh4_jit_compile_native;
+    meta->hash_func = sh4_jit_hash;
 }
 
 enum reg_status {

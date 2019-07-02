@@ -40,6 +40,7 @@
 
 #ifdef ENABLE_JIT_X86_64
 #include "jit/x86_64/code_block_x86_64.h"
+#include "jit/x86_64/native_dispatch.h"
 #endif
 
 struct InstOpcode;
