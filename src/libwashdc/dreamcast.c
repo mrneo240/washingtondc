@@ -1002,11 +1002,15 @@ static bool run_to_next_sh4_event_jit(void *ctxt) {
 
     while (tgt_stamp > clock_cycle_stamp(&sh4_clock)) {
         addr32_t blk_addr = newpc;
-        struct cache_entry *ent = code_cache_find(sh4_jit_hash(sh4, blk_addr));
+        jit_hash code_hash = sh4_jit_hash(sh4, blk_addr);
+        struct cache_entry *ent = code_cache_find(code_hash);
 
         struct jit_code_block *blk = &ent->blk;
         struct code_block_intp *intp_blk = &blk->intp;
         if (!ent->valid) {
+#ifdef JIT_PROFILE
+            blk->profile = jit_profile_create_block(blk_addr, code_hash);
+#endif
             sh4_jit_compile_intp(sh4, blk, blk_addr);
             ent->valid = true;
         }

@@ -100,16 +100,13 @@ jit_code_block_init(struct jit_code_block *blk, uint32_t addr_first,
     else
 #endif
         code_block_intp_init(&blk->intp);
-
-#ifdef JIT_PROFILE
-    blk->profile = jit_profile_create_block(addr_first);
-#endif
 }
 
 static inline void
 jit_code_block_cleanup(struct jit_code_block *blk, bool native_mode) {
 #ifdef JIT_PROFILE
-    jit_profile_free_block(blk->profile);
+    if (blk->profile)
+        jit_profile_free_block(blk->profile);
 #endif
 
 #ifdef ENABLE_JIT_X86_64

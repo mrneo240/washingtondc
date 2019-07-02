@@ -130,12 +130,17 @@ native_dispatch_entry_create(void *ctx_ptr,
 static struct cache_entry *
 dispatch_slow_path(uint32_t pc, struct native_dispatch_meta const *meta,
                    void *ctx_ptr) {
-    struct cache_entry *entry = code_cache_find_slow(meta->hash_func(ctx_ptr, pc));
+    jit_hash hash = meta->hash_func(ctx_ptr, pc);
+    struct cache_entry *entry = code_cache_find_slow(hash);
 
     code_cache_tbl[pc & CODE_CACHE_HASH_TBL_MASK] = entry;
 
+    struct jit_code_block *blk = &entry->blk;
     if (!entry->valid) {
-        meta->on_compile(ctx_ptr, &entry->blk, pc);
+#ifdef JIT_PROFILE
+        blk->profile = jit_profile_create_block(pc, hash);
+#endif
+        meta->on_compile(ctx_ptr, blk, pc);
         entry->valid = 1;
     }
 

@@ -30,9 +30,8 @@
 #include "x86_64/code_block_x86_64.h"
 #endif
 
+#include "jit_types.h"
 #include "washdc/types.h"
-
-typedef uint32_t jit_hash;
 
 /*
  * TODO: need to include FPU state in code cache, not just address.

@@ -27,6 +27,7 @@
 #include <stdint.h>
 
 #include "jit_il.h"
+#include "jit_types.h"
 
 #ifndef JIT_PROFILE
 #error this file should only be included in -DJIT_PROFILE=On builds
@@ -49,6 +50,7 @@ struct jit_profile_per_block {
     jit_profile_freq hit_count;
 
     uint32_t first_addr;
+    jit_hash hash;
     unsigned inst_count;
     void *instructions;
 
@@ -86,7 +88,8 @@ void jit_profile_notify(struct jit_profile_ctxt *ctxt,
                         struct jit_profile_per_block *blk);
 
 // allocate a profile information for a new code block.
-struct jit_profile_per_block *jit_profile_create_block(uint32_t addr_first);
+struct jit_profile_per_block *jit_profile_create_block(uint32_t addr_first,
+                                                       uint32_t hash);
 
 // release a reference to a code block
 void jit_profile_free_block(struct jit_profile_per_block *blk);

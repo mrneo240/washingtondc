@@ -96,11 +96,12 @@ void jit_profile_notify(struct jit_profile_ctxt *ctxt,
     }
 }
 
-struct jit_profile_per_block *jit_profile_create_block(uint32_t addr_first) {
+struct jit_profile_per_block *jit_profile_create_block(uint32_t addr_first, uint32_t hash) {
     struct jit_profile_per_block *blk = (struct jit_profile_per_block*)
         calloc(1, sizeof(struct jit_profile_per_block));
 
     blk->first_addr = addr_first;
+    blk->hash = hash;
     blk->refcount = 1;
 
     return blk;
@@ -157,6 +158,7 @@ void jit_profile_print(struct jit_profile_ctxt *ctxt, FILE *fout) {
               "======================\n", fout);
         fprintf(fout, "rank %u\n", ++rank);
         fprintf(fout, "\taddress: 0x%08x\n", (unsigned)profile->first_addr);
+        fprintf(fout, "\thash: 0x%08x\n", (unsigned)profile->hash);
         fprintf(fout, "\tinstruction count: %u\n", profile->inst_count);
         fprintf(fout, "\taccess count: %llu\n",
                 (unsigned long long)profile->hit_count);
