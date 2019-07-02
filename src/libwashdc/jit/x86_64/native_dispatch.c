@@ -41,7 +41,7 @@ static dc_cycle_stamp_t *cycle_stamp;
 static struct dc_clock *native_dispatch_clk;
 
 static void native_dispatch_emit(void *ctx_ptr,
-                                 struct native_dispatch_meta meta);
+                                 struct native_dispatch_meta const *meta);
 
 
 static void load_quad_into_reg(void *qptr, unsigned reg_no);
@@ -68,7 +68,7 @@ void native_dispatch_cleanup(void) {
 
 native_dispatch_entry_func
 native_dispatch_entry_create(void *ctx_ptr,
-                             struct native_dispatch_meta meta) {
+                             struct native_dispatch_meta const *meta) {
     void *entry = exec_mem_alloc(BASIC_ALLOC);
     x86asm_set_dst(entry, NULL, BASIC_ALLOC);
 
@@ -128,16 +128,14 @@ native_dispatch_entry_create(void *ctx_ptr,
 }
 
 static struct cache_entry *
-dispatch_slow_path(uint32_t pc,
-                   native_dispatch_compile_func compile_handler,
-                   native_dispatch_hash_func hash_func,
+dispatch_slow_path(uint32_t pc, struct native_dispatch_meta const *meta,
                    void *ctx_ptr) {
-    struct cache_entry *entry = code_cache_find_slow(hash_func(ctx_ptr, pc));
+    struct cache_entry *entry = code_cache_find_slow(meta->hash_func(ctx_ptr, pc));
 
     code_cache_tbl[pc & CODE_CACHE_HASH_TBL_MASK] = entry;
 
     if (!entry->valid) {
-        compile_handler(ctx_ptr, &entry->blk, pc);
+        meta->on_compile(ctx_ptr, &entry->blk, pc);
         entry->valid = 1;
     }
 
@@ -145,7 +143,7 @@ dispatch_slow_path(uint32_t pc,
 }
 
 static void native_dispatch_emit(void *ctx_ptr,
-                                 struct native_dispatch_meta meta) {
+                                 struct native_dispatch_meta const *meta) {
     struct x86asm_lbl8 code_cache_slow_path, have_valid_ent;
 
     /*
@@ -210,7 +208,7 @@ static void native_dispatch_emit(void *ctx_ptr,
 
     x86asm_mov_imm64_reg64((uintptr_t)ctx_ptr, REG_ARG0);
     x86asm_movq_disp8_reg_reg(jit_profile_offs, cachep_reg, REG_ARG1);
-    x86asm_mov_imm64_reg64((uintptr_t)(void*)meta.profile_notify, func_reg);
+    x86asm_mov_imm64_reg64((uintptr_t)(void*)meta->profile_notify, func_reg);
     x86asm_call_reg(func_reg);
 
     x86asm_mov_reg32_reg32(tmp_reg_1, hash_reg);
@@ -224,9 +222,8 @@ static void native_dispatch_emit(void *ctx_ptr,
 
     // hash is still in hash_reg, which is REG_ARG0
     x86asm_mov_imm64_reg64((uintptr_t)(void*)dispatch_slow_path, func_reg);
-    x86asm_mov_imm64_reg64((uintptr_t)(void*)meta.on_compile, REG_ARG1);
-    x86asm_mov_imm64_reg64((uintptr_t)(void*)meta.hash_func, REG_ARG2);
-    x86asm_mov_imm64_reg64((uintptr_t)ctx_ptr, REG_ARG3);
+    x86asm_mov_imm64_reg64((uintptr_t)(void*)meta, REG_ARG1);
+    x86asm_mov_imm64_reg64((uintptr_t)ctx_ptr, REG_ARG2);
     x86asm_call_reg(func_reg);
     x86asm_mov_reg64_reg64(ret_reg, cachep_reg);
 
@@ -239,7 +236,7 @@ static void native_dispatch_emit(void *ctx_ptr,
 }
 
 void native_check_cycles_emit(void *ctx_ptr,
-                              struct native_dispatch_meta meta) {
+                              struct native_dispatch_meta const *meta) {
     struct x86asm_lbl8 do_return;
     x86asm_lbl8_init(&do_return);
 
