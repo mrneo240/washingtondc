@@ -39,8 +39,9 @@
 void native_dispatch_init(struct dc_clock *clk);
 void native_dispatch_cleanup(void);
 
-// the uint32_t parameter is supposed to be a hash, not a PC pointer
-typedef uint32_t(*native_dispatch_entry_func)(uint32_t);
+// the first uint32_t parameter is supposed to be a hash
+// the second uint32_t parameter is the PC pointer
+typedef uint32_t(*native_dispatch_entry_func)(uint32_t,uint32_t);
 
 struct jit_code_block;
 typedef void(*native_dispatch_compile_func)(void*,struct jit_code_block*,addr32_t);

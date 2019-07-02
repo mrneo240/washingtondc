@@ -986,7 +986,7 @@ static bool run_to_next_sh4_event_jit_native(void *ctxt) {
 
     reg32_t newpc = sh4->reg[SH4_REG_PC];
 
-    newpc = native_dispatch_entry(sh4_jit_hash(ctxt, newpc));
+    newpc = native_dispatch_entry(sh4_jit_hash(ctxt, newpc), newpc);
 
     sh4->reg[SH4_REG_PC] = newpc;
 

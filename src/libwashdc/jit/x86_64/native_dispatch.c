@@ -153,13 +153,14 @@ static void native_dispatch_emit(void *ctx_ptr,
 
     /*
      * BEFORE CALLING THIS FUNCTION, REG_ARG0 MUST HOLD THE 32-BIT CODE HASH
-     * VALUE.
-     * THIS IS THE ONLY PARAMETER EXPECTED BY THIS FUNCTION.
+     * VALUE AND REG_ARG1 MUST HOLD THE 32-BIT PC ADDRESS.
+     * THESE ARE THE ONLY PARAMETERS EXPECTED BY THIS FUNCTION.
      * THE CODE EMITTED BY THIS FUNCTION WILL NOT RETURN.
      *
      * REGISTER ALLOCATION:
      *    RBX points to the struct cache_entry
-     *    EDI holds the 32-bit SH4 PC address
+     *    EDI holds the 32-bit hashed PC address
+     *    ESI holds the 32-bit SH4 PC address
      *    ECX holds the index into the code_cache_tbl
      *
      *    All other registers are considered to be "temporary" registers whose
@@ -168,6 +169,7 @@ static void native_dispatch_emit(void *ctx_ptr,
 
     // 32-bit SH4 PC address
     static unsigned const hash_reg = REG_ARG0;
+    static unsigned const pc_reg = REG_ARG1;
     static unsigned const cachep_reg = REG_NONVOL0;
     static unsigned const tmp_reg_1 = REG_NONVOL1;
     static unsigned const native_reg = REG_NONVOL2;
@@ -225,7 +227,7 @@ static void native_dispatch_emit(void *ctx_ptr,
 
     x86asm_lbl8_define(&code_cache_slow_path);
 
-    // hash is still in hash_reg, which is REG_ARG0
+    x86asm_mov_reg32_reg32(pc_reg, REG_ARG0);
     x86asm_mov_imm64_reg64((uintptr_t)(void*)dispatch_slow_path, func_reg);
     x86asm_mov_imm64_reg64((uintptr_t)(void*)meta, REG_ARG1);
     x86asm_mov_imm64_reg64((uintptr_t)ctx_ptr, REG_ARG2);
@@ -266,6 +268,7 @@ void native_check_cycles_emit(void *ctx_ptr,
 
     // call native_dispatch
     x86asm_mov_reg32_reg32(hash_reg, REG_ARG0);
+    x86asm_mov_reg32_reg32(new_pc_reg, REG_ARG1);
     native_dispatch_emit(ctx_ptr, meta);
 
     /*
