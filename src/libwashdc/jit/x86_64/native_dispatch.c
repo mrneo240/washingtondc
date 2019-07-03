@@ -223,7 +223,7 @@ void native_dispatch_entry_create(struct native_dispatch_meta *meta) {
 static struct cache_entry *
 dispatch_slow_path(uint32_t pc, struct native_dispatch_meta const *meta) {
     struct cache_entry *entry =
-    code_cache_find_slow(meta->hash_func(meta->ctx_ptr, pc));
+        code_cache_find_slow(meta->hash_func(meta->ctx_ptr, pc));
 
     code_cache_tbl[pc & CODE_CACHE_HASH_TBL_MASK] = entry;
 
