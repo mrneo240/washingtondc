@@ -55,12 +55,29 @@ void sh4_jit_new_block(void);
 struct sh4_jit_compile_ctx {
     unsigned last_inst_type;
     unsigned cycle_count;
+    bool sz_bit;
+    bool pr_bit;
+    bool in_delay_slot;
 };
 
 #define SH4_JIT_HASH_MASK 0x1fffffff
+#define SH4_JIT_HASH_PR_SHIFT 29
+#define SH4_JIT_HASH_SZ_SHIFT 30
+#define SH4_JIT_HASH_PR_MASK (1 << SH4_JIT_HASH_PR_SHIFT)
+#define SH4_JIT_HASH_SZ_MASK (1 << SH4_JIT_HASH_SZ_SHIFT)
 
-static inline jit_hash sh4_jit_hash(void *sh4, uint32_t addr) {
-    return addr & SH4_JIT_HASH_MASK;
+/*
+ * code block hash values
+ *
+ * addr refers to the 32-bit PC address of the first instruction of the block
+ * pr_bit refers to the PR bit in FPSCR
+ * sz_bit refers to the SZ bit in FPSCR
+ */
+static inline jit_hash sh4_jit_hash(void *sh4, uint32_t addr,
+                                    bool pr_bit, bool sz_bit) {
+    return (addr & SH4_JIT_HASH_MASK) |
+        (((jit_hash)pr_bit) << SH4_JIT_HASH_PR_SHIFT) |
+        (((jit_hash)sz_bit) << SH4_JIT_HASH_SZ_SHIFT);
 }
 
 bool
@@ -105,11 +122,16 @@ extern struct native_dispatch_meta const sh4_native_dispatch_meta;
 
 static inline void
 sh4_jit_compile_native(void *cpu, struct jit_code_block *jit_blk, uint32_t pc) {
-    struct Sh4 *sh4 = (struct Sh4*)cpu;
+    struct Sh4 const *sh4 = (struct Sh4*)cpu;
     struct il_code_block il_blk;
     struct code_block_x86_64 *blk = &jit_blk->x86_64;
-    struct sh4_jit_compile_ctx ctx = { .last_inst_type = SH4_GROUP_NONE,
-                                       .cycle_count = 0 };
+    struct sh4_jit_compile_ctx ctx = {
+        .last_inst_type = SH4_GROUP_NONE,
+        .cycle_count = 0,
+        .sz_bit = sh4_fpscr_sz(sh4),
+        .pr_bit = sh4_fpscr_pr(sh4),
+        .in_delay_slot = false
+    };
 
     il_code_block_init(&il_blk);
 
@@ -144,11 +166,17 @@ sh4_jit_compile_native(void *cpu, struct jit_code_block *jit_blk, uint32_t pc) {
 
 static inline void
 sh4_jit_compile_intp(void *cpu, void *blk_ptr, uint32_t pc) {
+    struct Sh4 const *sh4 = (struct Sh4*)cpu;
     struct il_code_block il_blk;
     struct jit_code_block *jit_blk = (struct jit_code_block*)blk_ptr;
     struct code_block_intp *blk = &jit_blk->intp;
-    struct sh4_jit_compile_ctx ctx = { .last_inst_type = SH4_GROUP_NONE,
-                                       .cycle_count = 0 };
+    struct sh4_jit_compile_ctx ctx = {
+        .last_inst_type = SH4_GROUP_NONE,
+        .cycle_count = 0,
+        .sz_bit = sh4_fpscr_sz(sh4),
+        .pr_bit = sh4_fpscr_pr(sh4),
+        .in_delay_slot = false
+    };
 
     il_code_block_init(&il_blk);
 
@@ -553,5 +581,30 @@ bool
 sh4_jit_movl_a_disp8_gbr_r0(struct Sh4 *sh4, struct sh4_jit_compile_ctx* ctx,
                             struct il_code_block *block, unsigned pc,
                             struct InstOpcode const *op, cpu_inst_param inst);
+
+// LDS Rm, FPSCR
+// 0100mmmm01101010
+bool sh4_jit_lds_rm_fpscr(struct Sh4 *sh4, struct sh4_jit_compile_ctx* ctx,
+                          struct il_code_block *block, unsigned pc,
+                          struct InstOpcode const *op, cpu_inst_param inst);
+
+// LDS.L @Rm+, FPSCR
+// 0100mmmm01100110
+bool sh4_jit_ldsl_armp_fpscr(struct Sh4 *sh4, struct sh4_jit_compile_ctx* ctx,
+                             struct il_code_block *block, unsigned pc,
+                             struct InstOpcode const *op, cpu_inst_param inst);
+
+// FSCHG
+// 1111001111111101
+bool sh4_jit_fschg(struct Sh4 *sh4, struct sh4_jit_compile_ctx* ctx,
+                   struct il_code_block *block, unsigned pc,
+                   struct InstOpcode const *op, cpu_inst_param inst);
+
+// TODO: below FPU things
+// needs to be implemented but can be put off until we have *real* FPU support:
+// FRCHG
+// probably does not need to be impelemnted
+// STS FPSCR, Rn
+// STS.L FPSCR, @-Rn
 
 #endif
