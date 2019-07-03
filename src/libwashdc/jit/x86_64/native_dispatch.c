@@ -128,12 +128,11 @@ native_dispatch_entry_create(void *ctx_ptr,
 }
 
 static struct cache_entry *
-dispatch_slow_path(uint32_t pc, struct native_dispatch_meta const *meta,
-                   void *ctx_ptr) {
-    jit_hash hash = meta->hash_func(ctx_ptr, pc);
+dispatch_slow_path(jit_hash hash, uint32_t pc,
+                   struct native_dispatch_meta const *meta, void *ctx_ptr) {
     struct cache_entry *entry = code_cache_find_slow(hash);
 
-    code_cache_tbl[pc & CODE_CACHE_HASH_TBL_MASK] = entry;
+    code_cache_tbl[hash & CODE_CACHE_HASH_TBL_MASK] = entry;
 
     struct jit_code_block *blk = &entry->blk;
     if (!entry->valid) {
@@ -227,10 +226,13 @@ static void native_dispatch_emit(void *ctx_ptr,
 
     x86asm_lbl8_define(&code_cache_slow_path);
 
-    x86asm_mov_reg32_reg32(pc_reg, REG_ARG0);
+    /*
+     * hash is already in REG_ARG0
+     * pc is already in REG_ARG1
+     */
     x86asm_mov_imm64_reg64((uintptr_t)(void*)dispatch_slow_path, func_reg);
-    x86asm_mov_imm64_reg64((uintptr_t)(void*)meta, REG_ARG1);
-    x86asm_mov_imm64_reg64((uintptr_t)ctx_ptr, REG_ARG2);
+    x86asm_mov_imm64_reg64((uintptr_t)(void*)meta, REG_ARG2);
+    x86asm_mov_imm64_reg64((uintptr_t)ctx_ptr, REG_ARG3);
     x86asm_call_reg(func_reg);
     x86asm_mov_reg64_reg64(ret_reg, cachep_reg);
 

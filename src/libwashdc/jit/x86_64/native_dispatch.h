@@ -58,7 +58,6 @@ struct native_dispatch_meta {
 #ifdef JIT_PROFILE
     native_dispatch_profile_notify_func profile_notify;
 #endif
-    native_dispatch_hash_func hash_func;
     native_dispatch_compile_func on_compile;
 };
 
