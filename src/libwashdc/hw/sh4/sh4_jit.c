@@ -319,10 +319,12 @@ bool sh4_jit_rts(Sh4 *sh4, struct sh4_jit_compile_ctx* ctx,
 
     sh4_jit_delay_slot(sh4, ctx, block, pc + 2);
 
+    res_drain_all_regs(sh4, block);
+    res_invalidate_all_regs(block);
+
     unsigned hash_slot = alloc_slot(block);
     sh4_jit_hash_slot_known_fpscr(sh4, ctx, block, jmp_addr_slot, hash_slot);
 
-    res_drain_all_regs(sh4, block);
     jit_jump(block, jmp_addr_slot, hash_slot);
 
     free_slot(block, hash_slot);
@@ -353,10 +355,11 @@ bool sh4_jit_rte(Sh4 *sh4, struct sh4_jit_compile_ctx* ctx,
 
     sh4_jit_delay_slot(sh4, ctx, block, pc + 2);
 
+    res_drain_all_regs(sh4, block);
+    res_invalidate_all_regs(block);
+
     unsigned hash_slot = alloc_slot(block);
     sh4_jit_hash_slot_known_fpscr(sh4, ctx, block, jmp_addr_slot, hash_slot);
-
-    res_drain_all_regs(sh4, block);
 
     jit_jump(block, jmp_addr_slot, hash_slot);
 
@@ -381,10 +384,11 @@ bool sh4_jit_braf_rn(Sh4 *sh4, struct sh4_jit_compile_ctx* ctx,
 
     sh4_jit_delay_slot(sh4, ctx, block, pc + 2);
 
+    res_drain_all_regs(sh4, block);
+    res_invalidate_all_regs(block);
+
     unsigned hash_slot = alloc_slot(block);
     sh4_jit_hash_slot_known_fpscr(sh4, ctx, block, jmp_addr_slot, hash_slot);
-
-    res_drain_all_regs(sh4, block);
 
     jit_jump(block, jmp_addr_slot, hash_slot);
 
@@ -412,10 +416,11 @@ bool sh4_jit_bsrf_rn(Sh4 *sh4, struct sh4_jit_compile_ctx* ctx,
 
     sh4_jit_delay_slot(sh4, ctx, block, pc + 2);
 
+    res_drain_all_regs(sh4, block);
+    res_invalidate_all_regs(block);
+
     unsigned hash_slot = alloc_slot(block);
     sh4_jit_hash_slot_known_fpscr(sh4, ctx, block, addr_slot_no, hash_slot);
-
-    res_drain_all_regs(sh4, block);
 
     jit_jump(block, addr_slot_no, hash_slot);
 
@@ -436,6 +441,9 @@ bool sh4_jit_bf(Sh4 *sh4, struct sh4_jit_compile_ctx* ctx,
     unsigned flag_slot = reg_slot(sh4, block, SH4_REG_SR);
     res_disassociate_reg(sh4, block, SH4_REG_SR);
 
+    res_drain_all_regs(sh4, block);
+    res_invalidate_all_regs(block);
+
     unsigned jmp_addr_slot = alloc_slot(block);
     unsigned alt_jmp_addr_slot = alloc_slot(block);
 
@@ -447,8 +455,6 @@ bool sh4_jit_bf(Sh4 *sh4, struct sh4_jit_compile_ctx* ctx,
     unsigned alt_hash_slot = alloc_slot(block);
     sh4_jit_hash_slot_known_fpscr(sh4, ctx, block,
                                   alt_jmp_addr_slot, alt_hash_slot);
-
-    res_drain_all_regs(sh4, block);
 
     jit_jump_cond(block, flag_slot, jmp_addr_slot, alt_jmp_addr_slot,
                   hash_slot, alt_hash_slot, 0);
@@ -477,6 +483,9 @@ bool sh4_jit_bt(Sh4 *sh4, struct sh4_jit_compile_ctx* ctx,
     unsigned flag_slot = reg_slot(sh4, block, SH4_REG_SR);
     res_disassociate_reg(sh4, block, SH4_REG_SR);
 
+    res_drain_all_regs(sh4, block);
+    res_invalidate_all_regs(block);
+
     unsigned jmp_addr_slot = alloc_slot(block);
     unsigned alt_jmp_addr_slot = alloc_slot(block);
 
@@ -488,8 +497,6 @@ bool sh4_jit_bt(Sh4 *sh4, struct sh4_jit_compile_ctx* ctx,
     unsigned alt_hash_slot = alloc_slot(block);
     sh4_jit_hash_slot_known_fpscr(sh4, ctx, block, alt_jmp_addr_slot,
                                   alt_hash_slot);
-
-    res_drain_all_regs(sh4, block);
 
     jit_jump_cond(block, flag_slot, jmp_addr_slot, alt_jmp_addr_slot,
                   hash_slot, alt_hash_slot, 1);
@@ -520,6 +527,9 @@ bool sh4_jit_bfs(Sh4 *sh4, struct sh4_jit_compile_ctx* ctx,
 
     sh4_jit_delay_slot(sh4, ctx, block, pc + 2);
 
+    res_drain_all_regs(sh4, block);
+    res_invalidate_all_regs(block);
+
     unsigned jmp_addr_slot = alloc_slot(block);
     unsigned alt_jmp_addr_slot = alloc_slot(block);
 
@@ -531,8 +541,6 @@ bool sh4_jit_bfs(Sh4 *sh4, struct sh4_jit_compile_ctx* ctx,
     unsigned alt_hash_slot = alloc_slot(block);
     sh4_jit_hash_slot_known_fpscr(sh4, ctx, block, alt_jmp_addr_slot,
                                   alt_hash_slot);
-
-    res_drain_all_regs(sh4, block);
 
     jit_jump_cond(block, flag_slot, jmp_addr_slot, alt_jmp_addr_slot,
                   hash_slot, alt_hash_slot, 0);
@@ -563,6 +571,9 @@ bool sh4_jit_bts(Sh4 *sh4, struct sh4_jit_compile_ctx* ctx,
 
     sh4_jit_delay_slot(sh4, ctx, block, pc + 2);
 
+    res_drain_all_regs(sh4, block);
+    res_invalidate_all_regs(block);
+
     unsigned jmp_addr_slot = alloc_slot(block);
     unsigned alt_jmp_addr_slot = alloc_slot(block);
 
@@ -574,8 +585,6 @@ bool sh4_jit_bts(Sh4 *sh4, struct sh4_jit_compile_ctx* ctx,
     unsigned alt_hash_slot = alloc_slot(block);
     sh4_jit_hash_slot_known_fpscr(sh4, ctx, block, alt_jmp_addr_slot,
                                   alt_hash_slot);
-
-    res_drain_all_regs(sh4, block);
 
     jit_jump_cond(block, flag_slot, jmp_addr_slot, alt_jmp_addr_slot,
                   hash_slot, alt_hash_slot, 1);
@@ -606,13 +615,14 @@ bool sh4_jit_bra(Sh4 *sh4, struct sh4_jit_compile_ctx* ctx,
 
     sh4_jit_delay_slot(sh4, ctx, block, pc + 2);
 
+    res_drain_all_regs(sh4, block);
+    res_invalidate_all_regs(block);
+
     unsigned addr_slot = alloc_slot(block);
     jit_set_slot(block, addr_slot, pc + disp);
 
     unsigned hash_slot = alloc_slot(block);
     sh4_jit_hash_slot_known_fpscr(sh4, ctx, block, addr_slot, hash_slot);
-
-    res_drain_all_regs(sh4, block);
 
     jit_jump(block, addr_slot, hash_slot);
 
@@ -638,13 +648,14 @@ bool sh4_jit_bsr(Sh4 *sh4, struct sh4_jit_compile_ctx* ctx,
 
     sh4_jit_delay_slot(sh4, ctx, block, pc + 2);
 
+    res_drain_all_regs(sh4, block);
+    res_invalidate_all_regs(block);
+
     unsigned addr_slot = alloc_slot(block);
     jit_set_slot(block, addr_slot, pc + disp);
 
     unsigned hash_slot = alloc_slot(block);
     sh4_jit_hash_slot_known_fpscr(sh4, ctx, block, addr_slot, hash_slot);
-
-    res_drain_all_regs(sh4, block);
 
     jit_jump(block, addr_slot, hash_slot);
 
@@ -667,10 +678,11 @@ bool sh4_jit_jmp_arn(Sh4 *sh4, struct sh4_jit_compile_ctx* ctx,
 
     sh4_jit_delay_slot(sh4, ctx, block, pc + 2);
 
+    res_drain_all_regs(sh4, block);
+    res_invalidate_all_regs(block);
+
     unsigned hash_slot = alloc_slot(block);
     sh4_jit_hash_slot_known_fpscr(sh4, ctx, block, jmp_addr_slot, hash_slot);
-
-    res_drain_all_regs(sh4, block);
 
     jit_jump(block, jmp_addr_slot, hash_slot);
 
@@ -696,10 +708,11 @@ bool sh4_jit_jsr_arn(Sh4 *sh4, struct sh4_jit_compile_ctx* ctx,
 
     sh4_jit_delay_slot(sh4, ctx, block, pc + 2);
 
+    res_drain_all_regs(sh4, block);
+    res_invalidate_all_regs(block);
+
     unsigned hash_slot = alloc_slot(block);
     sh4_jit_hash_slot_known_fpscr(sh4, ctx, block, addr_slot_no, hash_slot);
-
-    res_drain_all_regs(sh4, block);
 
     jit_jump(block, addr_slot_no, hash_slot);
 
