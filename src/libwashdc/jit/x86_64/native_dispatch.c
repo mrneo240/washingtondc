@@ -152,8 +152,7 @@ static void native_dispatch_emit(void *ctx_ptr,
 
     /*
      * BEFORE CALLING THIS FUNCTION, REG_ARG0 MUST HOLD THE 32-BIT CODE HASH
-     * VALUE AND REG_ARG1 MUST HOLD THE 32-BIT PC ADDRESS.
-     * THESE ARE THE ONLY PARAMETERS EXPECTED BY THIS FUNCTION.
+     * THIS IS THE ONLY PARAMETER EXPECTED BY THIS FUNCTION.
      * THE CODE EMITTED BY THIS FUNCTION WILL NOT RETURN.
      *
      * REGISTER ALLOCATION:
@@ -168,7 +167,6 @@ static void native_dispatch_emit(void *ctx_ptr,
 
     // 32-bit SH4 PC address
     static unsigned const hash_reg = REG_ARG0;
-    static unsigned const pc_reg = REG_ARG1;
     static unsigned const cachep_reg = REG_NONVOL0;
     static unsigned const tmp_reg_1 = REG_NONVOL1;
     static unsigned const native_reg = REG_NONVOL2;
@@ -270,7 +268,6 @@ void native_check_cycles_emit(void *ctx_ptr,
 
     // call native_dispatch
     x86asm_mov_reg32_reg32(hash_reg, REG_ARG0);
-    x86asm_mov_reg32_reg32(new_pc_reg, REG_ARG1);
     native_dispatch_emit(ctx_ptr, meta);
 
     /*
