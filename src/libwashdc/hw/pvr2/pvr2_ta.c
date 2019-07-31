@@ -166,7 +166,6 @@ next_poly_group(struct pvr2 *pvr2, enum display_list_type disp_list);
 
 static int decode_poly_hdr(struct pvr2 *pvr2, struct pvr2_pkt *pkt);
 static int decode_end_of_list(struct pvr2 *pvr2, struct pvr2_pkt *pkt);
-static int decode_vtx(struct pvr2 *pvr2, struct pvr2_pkt *pkt);
 static int decode_input_list(struct pvr2 *pvr2, struct pvr2_pkt *pkt);
 static int decode_user_clip(struct pvr2 *pvr2, struct pvr2_pkt *pkt);
 
@@ -212,6 +211,47 @@ static void pvr2_pt_complete_int_event_handler(struct SchedEvent *event);
 #define PVR2_TA_VERT_BUF_LEN (1024 * 1024)
 
 #define PVR2_GFX_IL_INST_BUF_LEN (1024 * 256)
+
+typedef void(*decode_vtx_impl_type)(struct pvr2 *, struct pvr2_pkt *);
+static decode_vtx_impl_type const decode_vtx_impl_arr[64];
+
+/*
+ * following variables need to be pre-calculated:
+ *     ta->hdr.tex_enable (true/false)
+ *     ta->hdr.tex_coord_16_bit_enable (true/false)
+ *     ta->hdr.offset_color_enable (true/false)
+ *     ta->hdr.two_volumes_mode (true/false)
+ *
+ *     ta->hdr.ta_color_fmt (TA_COLOR_TYPE_PACKED/
+ *                           TA_COLOR_TYPE_INTENSITY_MODE_1/
+ *                           TA_COLOR_TYPE_INTENSITY_MODE_2/
+ *                           TA_COLOR_TYPE_FLOAT)
+ *
+ * total of 64 different combinations.
+ */
+#define DECODE_VTX_TEX_ENABLE_SHIFT 0
+#define DECODE_VTX_TEX_COORD_16_BIT_ENABLE_SHIFT 1
+#define DECODE_VTX_OFFSET_COLOR_ENABLE_SHIFT 2
+#define DECODE_VTX_TWO_VOLUMES_ENABLE_SHIFT 3
+#define DECODE_VTX_COLOR_TYPE_SHIFT 4
+
+#define DECODE_VTX_MASK_TEX_ENABLE (1 << DECODE_VTX_TEX_ENABLE_SHIFT)
+#define DECODE_VTX_MASK_TEX_COORD_16_BIT_ENABLE \
+    (1 << DECODE_VTX_TEX_COORD_16_BIT_ENABLE_SHIFT)
+#define DECODE_VTX_MASK_OFFSET_COLOR_ENABLE \
+    (1 << DECODE_VTX_OFFSET_COLOR_ENABLE_SHIFT)
+#define DECODE_VTX_MASK_TWO_VOLUMES_ENABLE \
+    (1 << DECODE_VTX_TWO_VOLUMES_ENABLE_SHIFT)
+#define DECODE_VTX_MASK_COLOR_TYPE (3 << DECODE_VTX_COLOR_TYPE_SHIFT)
+
+#define DECODE_VTX_COLOR_TYPE_PACKED                        \
+    (TA_COLOR_TYPE_PACKED << DECODE_VTX_COLOR_TYPE_SHIFT)
+#define DECODE_VTX_COLOR_TYPE_FLOAT \
+    (TA_COLOR_TYPE_FLOAT << DECODE_VTX_COLOR_TYPE_SHIFT)
+#define DECODE_VTX_COLOR_TYPE_INTENSITY_MODE_1 \
+    (TA_COLOR_TYPE_INTENSITY_MODE_1 << DECODE_VTX_COLOR_TYPE_SHIFT)
+#define DECODE_VTX_COLOR_TYPE_INTENSITY_MODE_2 \
+    (TA_COLOR_TYPE_INTENSITY_MODE_2 << DECODE_VTX_COLOR_TYPE_SHIFT)
 
 void pvr2_ta_init(struct pvr2 *pvr2) {
     struct pvr2_ta *ta = &pvr2->ta;
@@ -501,6 +541,15 @@ static void on_pkt_hdr_received(struct pvr2 *pvr2, struct pvr2_pkt const *pkt) {
         PVR2_TRACE("textures are NOT enabled\n");
         /* poly_state.tex_enable = false; */
     }
+
+    int hash = (ta->hdr.tex_enable << DECODE_VTX_TEX_ENABLE_SHIFT) |
+        (ta->hdr.tex_coord_16_bit_enable <<
+         DECODE_VTX_TEX_COORD_16_BIT_ENABLE_SHIFT) |
+        (ta->hdr.offset_color_enable <<
+         DECODE_VTX_OFFSET_COLOR_ENABLE_SHIFT) |
+        (ta->hdr.two_volumes_mode << DECODE_VTX_TWO_VOLUMES_ENABLE_SHIFT) |
+        (ta->hdr.ta_color_fmt << DECODE_VTX_COLOR_TYPE_SHIFT);
+    ta->hdr.decode_vtx_func = decode_vtx_impl_arr[hash];
 }
 
 static void
@@ -857,11 +906,18 @@ static void handle_packet(struct pvr2 *pvr2) {
         }
         break;
     case TA_CMD_TYPE_VERTEX:
-        if (decode_vtx(pvr2, &pkt) == 0) {
-            PVR2_TRACE("vertex packet received\n");
-            on_pkt_vtx_received(pvr2, &pkt);
-            ta_fifo_finish_packet(ta);
+        if (ta->ta_fifo_word_count < (ta->hdr.vtx_len / 4))
+            break;
+        else if (ta->ta_fifo_word_count > (ta->hdr.vtx_len / 4)) {
+            LOG_ERROR("byte count is %u, vtx_len is %u\n",
+                      ta->ta_fifo_word_count * 4, ta->hdr.vtx_len);
+            RAISE_ERROR(ERROR_INTEGRITY);
         }
+
+        ta->hdr.decode_vtx_func(pvr2, &pkt);
+        PVR2_TRACE("vertex packet received\n");
+        on_pkt_vtx_received(pvr2, &pkt);
+        ta_fifo_finish_packet(ta);
         break;
     case TA_CMD_TYPE_INPUT_LIST:
         if (decode_input_list(pvr2, &pkt) == 0) {
@@ -927,169 +983,320 @@ static int decode_end_of_list(struct pvr2 *pvr2, struct pvr2_pkt *pkt) {
     return 0;
 }
 
-static int decode_vtx(struct pvr2 *pvr2, struct pvr2_pkt *pkt) {
-    struct pvr2_ta *ta = &pvr2->ta;
-    uint32_t const *ta_fifo32 = (uint32_t const*)ta->ta_fifo32;
-
-    if (ta->ta_fifo_word_count < (ta->hdr.vtx_len / 4))
-        return -1;
-    else if (ta->ta_fifo_word_count > (ta->hdr.vtx_len / 4)) {
-        LOG_ERROR("byte count is %u, vtx_len is %u\n",
-                  ta->ta_fifo_word_count * 4, ta->hdr.vtx_len);
-        RAISE_ERROR(ERROR_INTEGRITY);
+#define DEF_DECODE_VTX(hash)                                            \
+    static void decode_vtx_impl_##hash(struct pvr2 *pvr2,               \
+                                      struct pvr2_pkt *pkt) {           \
+        struct pvr2_ta *ta = &pvr2->ta;                                 \
+        uint32_t const *ta_fifo32 = (uint32_t const*)ta->ta_fifo32;     \
+                                                                        \
+        pkt->tp = PVR2_PKT_VTX;                                         \
+        struct pvr2_pkt_vtx *vtx = &pkt->dat.vtx;                       \
+                                                                        \
+        vtx->end_of_strip =                                             \
+            (bool)(ta_fifo32[0] & TA_CMD_END_OF_STRIP_MASK);            \
+                                                                        \
+        memcpy(vtx->pos, ta_fifo32 + 1, 3 * sizeof(float));             \
+                                                                        \
+        if (hash & DECODE_VTX_MASK_TEX_ENABLE) {                        \
+            if (hash & DECODE_VTX_MASK_TEX_COORD_16_BIT_ENABLE)         \
+                unpack_uv16(vtx->uv, vtx->uv + 1, ta_fifo32 + 4);       \
+            else                                                        \
+                memcpy(vtx->uv, ta_fifo32 + 4, 2 * sizeof(float));      \
+        }                                                               \
+                                                                        \
+        if (hash & DECODE_VTX_MASK_TWO_VOLUMES_ENABLE) {                \
+            switch (hash & DECODE_VTX_MASK_COLOR_TYPE) {                \
+            case DECODE_VTX_COLOR_TYPE_PACKED:                          \
+                if (hash & DECODE_VTX_MASK_TEX_ENABLE) {                \
+                    unpack_rgba_8888(ta_fifo32, vtx->base_color,        \
+                                     ta_fifo32[6]);                     \
+                } else {                                                \
+                    unpack_rgba_8888(ta_fifo32, vtx->base_color,        \
+                                     ta_fifo32[4]);                     \
+                }                                                       \
+                if ((hash & DECODE_VTX_MASK_TEX_ENABLE) &&              \
+                    (hash & DECODE_VTX_MASK_OFFSET_COLOR_ENABLE)) {     \
+                    unpack_rgba_8888(ta_fifo32, vtx->offs_color,        \
+                                     ta_fifo32[7]);                     \
+                } else {                                                \
+                    vtx->offs_color[0] = 0.0f;                          \
+                    vtx->offs_color[1] = 0.0f;                          \
+                    vtx->offs_color[2] = 0.0f;                          \
+                    vtx->offs_color[3] = 0.0f;                          \
+                }                                                       \
+                break;                                                  \
+            case DECODE_VTX_COLOR_TYPE_INTENSITY_MODE_1:                \
+            case DECODE_VTX_COLOR_TYPE_INTENSITY_MODE_2:                \
+                {                                                       \
+                    float base_intensity, offs_intensity;               \
+                    if (hash & DECODE_VTX_MASK_TEX_ENABLE) {            \
+                        memcpy(&base_intensity, ta_fifo32 + 6,          \
+                            sizeof(float));                             \
+                        memcpy(&offs_intensity, ta_fifo32 + 7,          \
+                            sizeof(float));                             \
+                    } else {                                            \
+                        memcpy(&base_intensity, ta_fifo32 + 4,          \
+                               sizeof(float));                          \
+                        memcpy(&offs_intensity, ta_fifo32 + 5,          \
+                               sizeof(float));                          \
+                    }                                                   \
+                    vtx->base_color[0] =                                \
+                        base_intensity * ta->poly_base_color_rgba[0];   \
+                    vtx->base_color[1] =                                \
+                        base_intensity * ta->poly_base_color_rgba[1];   \
+                    vtx->base_color[2] =                                \
+                        base_intensity * ta->poly_base_color_rgba[2];   \
+                    vtx->base_color[3] = ta->poly_base_color_rgba[3];   \
+                    if (hash & DECODE_VTX_MASK_OFFSET_COLOR_ENABLE) {   \
+                        vtx->offs_color[0] =                            \
+                            offs_intensity *                            \
+                            ta->poly_offs_color_rgba[0];                \
+                        vtx->offs_color[1] =                            \
+                            offs_intensity *                            \
+                            ta->poly_offs_color_rgba[1];                \
+                        vtx->offs_color[2] =                            \
+                            offs_intensity *                            \
+                            ta->poly_offs_color_rgba[2];                \
+                        vtx->offs_color[3] =                            \
+                            ta->poly_offs_color_rgba[3];                \
+                    } else {                                            \
+                        vtx->offs_color[0] = 0.0f;                      \
+                        vtx->offs_color[1] = 0.0f;                      \
+                        vtx->offs_color[2] = 0.0f;                      \
+                        vtx->offs_color[3] = 0.0f;                      \
+                    }                                                   \
+                }                                                       \
+                break;                                                  \
+            case DECODE_VTX_COLOR_TYPE_FLOAT:                           \
+                /* this is not supported, AFAIK */                      \
+                RAISE_ERROR(ERROR_UNIMPLEMENTED);                       \
+            }                                                           \
+        } else {                                                        \
+            switch (hash & DECODE_VTX_MASK_COLOR_TYPE) {                \
+            case DECODE_VTX_COLOR_TYPE_PACKED:                          \
+                unpack_rgba_8888(ta_fifo32, vtx->base_color,            \
+                                 ta_fifo32[6]);                         \
+                if (hash & DECODE_VTX_MASK_OFFSET_COLOR_ENABLE) {       \
+                    unpack_rgba_8888(ta_fifo32, vtx->offs_color,        \
+                                     ta_fifo32[7]);                     \
+                } else {                                                \
+                    vtx->offs_color[0] = 0.0f;                          \
+                    vtx->offs_color[1] = 0.0f;                          \
+                    vtx->offs_color[2] = 0.0f;                          \
+                    vtx->offs_color[3] = 0.0f;                          \
+                }                                                       \
+                break;                                                  \
+            case DECODE_VTX_COLOR_TYPE_FLOAT:                           \
+                if (hash & DECODE_VTX_MASK_TEX_ENABLE) {                \
+                    memcpy(vtx->base_color + 3, ta_fifo32 + 8,          \
+                           sizeof(float));                              \
+                    memcpy(vtx->base_color + 0, ta_fifo32 + 9,          \
+                           sizeof(float));                              \
+                    memcpy(vtx->base_color + 1, ta_fifo32 + 10,         \
+                           sizeof(float));                              \
+                    memcpy(vtx->base_color + 2, ta_fifo32 + 11,         \
+                           sizeof(float));                              \
+                    if (hash & DECODE_VTX_MASK_OFFSET_COLOR_ENABLE) {   \
+                        memcpy(vtx->offs_color + 3, ta_fifo32 + 12,     \
+                               sizeof(float));                          \
+                        memcpy(vtx->offs_color + 0, ta_fifo32 + 13,     \
+                               sizeof(float));                          \
+                        memcpy(vtx->offs_color + 1, ta_fifo32 + 14,     \
+                               sizeof(float));                          \
+                        memcpy(vtx->offs_color + 2, ta_fifo32 + 15,     \
+                               sizeof(float));                          \
+                    } else {                                            \
+                        vtx->offs_color[0] = 0.0f;                      \
+                        vtx->offs_color[1] = 0.0f;                      \
+                        vtx->offs_color[2] = 0.0f;                      \
+                        vtx->offs_color[3] = 0.0f;                      \
+                    }                                                   \
+                } else {                                                \
+                    memcpy(vtx->base_color + 3, ta_fifo32 + 4,          \
+                           sizeof(float));                              \
+                    memcpy(vtx->base_color + 0, ta_fifo32 + 5,          \
+                           sizeof(float));                              \
+                    memcpy(vtx->base_color + 1, ta_fifo32 + 6,          \
+                           sizeof(float));                              \
+                    memcpy(vtx->base_color + 2, ta_fifo32 + 7,          \
+                           sizeof(float));                              \
+                                                                        \
+                    vtx->offs_color[0] = 0.0f;                          \
+                    vtx->offs_color[1] = 0.0f;                          \
+                    vtx->offs_color[2] = 0.0f;                          \
+                    vtx->offs_color[3] = 0.0f;                          \
+                }                                                       \
+                break;                                                  \
+            case DECODE_VTX_COLOR_TYPE_INTENSITY_MODE_1:                \
+            case DECODE_VTX_COLOR_TYPE_INTENSITY_MODE_2:                \
+                {                                                       \
+                    float base_intensity, offs_intensity;               \
+                    memcpy(&base_intensity, ta_fifo32 + 6,              \
+                           sizeof(float));                              \
+                    memcpy(&offs_intensity, ta_fifo32 + 7,              \
+                           sizeof(float));                              \
+                    vtx->base_color[0] =                                \
+                        base_intensity * ta->poly_base_color_rgba[0];   \
+                    vtx->base_color[1] =                                \
+                        base_intensity * ta->poly_base_color_rgba[1];   \
+                    vtx->base_color[2] =                                \
+                        base_intensity * ta->poly_base_color_rgba[2];   \
+                    vtx->base_color[3] = ta->poly_base_color_rgba[3];   \
+                    if (hash & DECODE_VTX_MASK_OFFSET_COLOR_ENABLE) {   \
+                        vtx->offs_color[0] =                            \
+                            offs_intensity *                            \
+                            ta->poly_offs_color_rgba[0];                \
+                        vtx->offs_color[1] =                            \
+                            offs_intensity *                            \
+                            ta->poly_offs_color_rgba[1];                \
+                        vtx->offs_color[2] =                            \
+                            offs_intensity *                            \
+                            ta->poly_offs_color_rgba[2];                \
+                        vtx->offs_color[3] =                            \
+                            ta->poly_offs_color_rgba[3];                \
+                    } else {                                            \
+                        vtx->offs_color[0] = 0.0f;                      \
+                        vtx->offs_color[1] = 0.0f;                      \
+                        vtx->offs_color[2] = 0.0f;                      \
+                        vtx->offs_color[3] = 0.0f;                      \
+                    }                                                   \
+                }                                                       \
+                break;                                                  \
+            }                                                           \
+        }                                                               \
     }
 
-    pkt->tp = PVR2_PKT_VTX;
-    struct pvr2_pkt_vtx *vtx = &pkt->dat.vtx;
+DEF_DECODE_VTX(0)
+DEF_DECODE_VTX(1)
+DEF_DECODE_VTX(2)
+DEF_DECODE_VTX(3)
+DEF_DECODE_VTX(4)
+DEF_DECODE_VTX(5)
+DEF_DECODE_VTX(6)
+DEF_DECODE_VTX(7)
+DEF_DECODE_VTX(8)
+DEF_DECODE_VTX(9)
+DEF_DECODE_VTX(10)
+DEF_DECODE_VTX(11)
+DEF_DECODE_VTX(12)
+DEF_DECODE_VTX(13)
+DEF_DECODE_VTX(14)
+DEF_DECODE_VTX(15)
+DEF_DECODE_VTX(16)
+DEF_DECODE_VTX(17)
+DEF_DECODE_VTX(18)
+DEF_DECODE_VTX(19)
+DEF_DECODE_VTX(20)
+DEF_DECODE_VTX(21)
+DEF_DECODE_VTX(22)
+DEF_DECODE_VTX(23)
+DEF_DECODE_VTX(24)
+DEF_DECODE_VTX(25)
+DEF_DECODE_VTX(26)
+DEF_DECODE_VTX(27)
+DEF_DECODE_VTX(28)
+DEF_DECODE_VTX(29)
+DEF_DECODE_VTX(30)
+DEF_DECODE_VTX(31)
+DEF_DECODE_VTX(32)
+DEF_DECODE_VTX(33)
+DEF_DECODE_VTX(34)
+DEF_DECODE_VTX(35)
+DEF_DECODE_VTX(36)
+DEF_DECODE_VTX(37)
+DEF_DECODE_VTX(38)
+DEF_DECODE_VTX(39)
+DEF_DECODE_VTX(40)
+DEF_DECODE_VTX(41)
+DEF_DECODE_VTX(42)
+DEF_DECODE_VTX(43)
+DEF_DECODE_VTX(44)
+DEF_DECODE_VTX(45)
+DEF_DECODE_VTX(46)
+DEF_DECODE_VTX(47)
+DEF_DECODE_VTX(48)
+DEF_DECODE_VTX(49)
+DEF_DECODE_VTX(50)
+DEF_DECODE_VTX(51)
+DEF_DECODE_VTX(52)
+DEF_DECODE_VTX(53)
+DEF_DECODE_VTX(54)
+DEF_DECODE_VTX(55)
+DEF_DECODE_VTX(56)
+DEF_DECODE_VTX(57)
+DEF_DECODE_VTX(58)
+DEF_DECODE_VTX(59)
+DEF_DECODE_VTX(60)
+DEF_DECODE_VTX(61)
+DEF_DECODE_VTX(62)
+DEF_DECODE_VTX(63)
 
-    vtx->end_of_strip = (bool)(ta_fifo32[0] & TA_CMD_END_OF_STRIP_MASK);
-
-    memcpy(vtx->pos, ta_fifo32 + 1, 3 * sizeof(float));
-
-    if (ta->hdr.tex_enable) {
-        if (ta->hdr.tex_coord_16_bit_enable)
-            unpack_uv16(vtx->uv, vtx->uv + 1, ta_fifo32 + 4);
-        else
-            memcpy(vtx->uv, ta_fifo32 + 4, 2 * sizeof(float));
-    }
-
-    if (ta->hdr.two_volumes_mode) {
-        switch (ta->hdr.ta_color_fmt) {
-        case TA_COLOR_TYPE_PACKED:
-            if (ta->hdr.tex_enable)
-                unpack_rgba_8888(ta_fifo32, vtx->base_color, ta_fifo32[6]);
-            else
-                unpack_rgba_8888(ta_fifo32, vtx->base_color, ta_fifo32[4]);
-            if (ta->hdr.offset_color_enable && ta->hdr.tex_enable) {
-                unpack_rgba_8888(ta_fifo32, vtx->offs_color, ta_fifo32[7]);
-            } else {
-                vtx->offs_color[0] = 0.0f;
-                vtx->offs_color[1] = 0.0f;
-                vtx->offs_color[2] = 0.0f;
-                vtx->offs_color[3] = 0.0f;
-            }
-            break;
-        case TA_COLOR_TYPE_INTENSITY_MODE_1:
-        case TA_COLOR_TYPE_INTENSITY_MODE_2:
-            {
-                float base_intensity, offs_intensity;
-                if (ta->hdr.tex_enable) {
-                    memcpy(&base_intensity, ta_fifo32 + 6, sizeof(float));
-                    memcpy(&offs_intensity, ta_fifo32 + 7, sizeof(float));
-                } else {
-                    memcpy(&base_intensity, ta_fifo32 + 4, sizeof(float));
-                    memcpy(&offs_intensity, ta_fifo32 + 5, sizeof(float));
-                }
-                vtx->base_color[0] =
-                    base_intensity * ta->poly_base_color_rgba[0];
-                vtx->base_color[1] =
-                    base_intensity * ta->poly_base_color_rgba[1];
-                vtx->base_color[2] =
-                    base_intensity * ta->poly_base_color_rgba[2];
-                vtx->base_color[3] = ta->poly_base_color_rgba[3];
-                if (ta->hdr.offset_color_enable) {
-                    vtx->offs_color[0] =
-                        offs_intensity * ta->poly_offs_color_rgba[0];
-                    vtx->offs_color[1] =
-                        offs_intensity * ta->poly_offs_color_rgba[1];
-                    vtx->offs_color[2] =
-                        offs_intensity * ta->poly_offs_color_rgba[2];
-                    vtx->offs_color[3] = ta->poly_offs_color_rgba[3];
-                } else {
-                    vtx->offs_color[0] = 0.0f;
-                    vtx->offs_color[1] = 0.0f;
-                    vtx->offs_color[2] = 0.0f;
-                    vtx->offs_color[3] = 0.0f;
-                }
-            }
-            break;
-        case TA_COLOR_TYPE_FLOAT:
-            // this is not supported, AFAIK
-        default:
-            RAISE_ERROR(ERROR_UNIMPLEMENTED);
-        }
-    } else {
-        switch (ta->hdr.ta_color_fmt) {
-        case TA_COLOR_TYPE_PACKED:
-            unpack_rgba_8888(ta_fifo32, vtx->base_color, ta_fifo32[6]);
-            if (ta->hdr.offset_color_enable) {
-                unpack_rgba_8888(ta_fifo32, vtx->offs_color, ta_fifo32[7]);
-            } else {
-                vtx->offs_color[0] = 0.0f;
-                vtx->offs_color[1] = 0.0f;
-                vtx->offs_color[2] = 0.0f;
-                vtx->offs_color[3] = 0.0f;
-            }
-            break;
-        case TA_COLOR_TYPE_FLOAT:
-            if (ta->hdr.tex_enable) {
-                memcpy(vtx->base_color + 3, ta_fifo32 + 8, sizeof(float));
-                memcpy(vtx->base_color + 0, ta_fifo32 + 9, sizeof(float));
-                memcpy(vtx->base_color + 1, ta_fifo32 + 10, sizeof(float));
-                memcpy(vtx->base_color + 2, ta_fifo32 + 11, sizeof(float));
-                if (ta->hdr.offset_color_enable) {
-                    memcpy(vtx->offs_color + 3, ta_fifo32 + 12,
-                           sizeof(float));
-                    memcpy(vtx->offs_color + 0, ta_fifo32 + 13,
-                           sizeof(float));
-                    memcpy(vtx->offs_color + 1, ta_fifo32 + 14,
-                           sizeof(float));
-                    memcpy(vtx->offs_color + 2, ta_fifo32 + 15,
-                           sizeof(float));
-                } else {
-                    vtx->offs_color[0] = 0.0f;
-                    vtx->offs_color[1] = 0.0f;
-                    vtx->offs_color[2] = 0.0f;
-                    vtx->offs_color[3] = 0.0f;
-                }
-            } else {
-                memcpy(vtx->base_color + 3, ta_fifo32 + 4, sizeof(float));
-                memcpy(vtx->base_color + 0, ta_fifo32 + 5, sizeof(float));
-                memcpy(vtx->base_color + 1, ta_fifo32 + 6, sizeof(float));
-                memcpy(vtx->base_color + 2, ta_fifo32 + 7, sizeof(float));
-
-                vtx->offs_color[0] = 0.0f;
-                vtx->offs_color[1] = 0.0f;
-                vtx->offs_color[2] = 0.0f;
-                vtx->offs_color[3] = 0.0f;
-            }
-            break;
-        case TA_COLOR_TYPE_INTENSITY_MODE_1:
-        case TA_COLOR_TYPE_INTENSITY_MODE_2:
-            {
-                float base_intensity, offs_intensity;
-                memcpy(&base_intensity, ta_fifo32 + 6, sizeof(float));
-                memcpy(&offs_intensity, ta_fifo32 + 7, sizeof(float));
-                vtx->base_color[0] =
-                    base_intensity * ta->poly_base_color_rgba[0];
-                vtx->base_color[1] =
-                    base_intensity * ta->poly_base_color_rgba[1];
-                vtx->base_color[2] =
-                    base_intensity * ta->poly_base_color_rgba[2];
-                vtx->base_color[3] = ta->poly_base_color_rgba[3];
-                if (ta->hdr.offset_color_enable) {
-                    vtx->offs_color[0] =
-                        offs_intensity * ta->poly_offs_color_rgba[0];
-                    vtx->offs_color[1] =
-                        offs_intensity * ta->poly_offs_color_rgba[1];
-                    vtx->offs_color[2] =
-                        offs_intensity * ta->poly_offs_color_rgba[2];
-                    vtx->offs_color[3] = ta->poly_offs_color_rgba[3];
-                } else {
-                    vtx->offs_color[0] = 0.0f;
-                    vtx->offs_color[1] = 0.0f;
-                    vtx->offs_color[2] = 0.0f;
-                    vtx->offs_color[3] = 0.0f;
-                }
-            }
-            break;
-        default:
-            RAISE_ERROR(ERROR_INTEGRITY);
-        }
-    }
-
-    return 0;
-}
+static decode_vtx_impl_type const decode_vtx_impl_arr[64] = {
+    decode_vtx_impl_0,
+    decode_vtx_impl_1,
+    decode_vtx_impl_2,
+    decode_vtx_impl_3,
+    decode_vtx_impl_4,
+    decode_vtx_impl_5,
+    decode_vtx_impl_6,
+    decode_vtx_impl_7,
+    decode_vtx_impl_8,
+    decode_vtx_impl_9,
+    decode_vtx_impl_10,
+    decode_vtx_impl_11,
+    decode_vtx_impl_12,
+    decode_vtx_impl_13,
+    decode_vtx_impl_14,
+    decode_vtx_impl_15,
+    decode_vtx_impl_16,
+    decode_vtx_impl_17,
+    decode_vtx_impl_18,
+    decode_vtx_impl_19,
+    decode_vtx_impl_20,
+    decode_vtx_impl_21,
+    decode_vtx_impl_22,
+    decode_vtx_impl_23,
+    decode_vtx_impl_24,
+    decode_vtx_impl_25,
+    decode_vtx_impl_26,
+    decode_vtx_impl_27,
+    decode_vtx_impl_28,
+    decode_vtx_impl_29,
+    decode_vtx_impl_30,
+    decode_vtx_impl_31,
+    decode_vtx_impl_32,
+    decode_vtx_impl_33,
+    decode_vtx_impl_34,
+    decode_vtx_impl_35,
+    decode_vtx_impl_36,
+    decode_vtx_impl_37,
+    decode_vtx_impl_38,
+    decode_vtx_impl_39,
+    decode_vtx_impl_40,
+    decode_vtx_impl_41,
+    decode_vtx_impl_42,
+    decode_vtx_impl_43,
+    decode_vtx_impl_44,
+    decode_vtx_impl_45,
+    decode_vtx_impl_46,
+    decode_vtx_impl_47,
+    decode_vtx_impl_48,
+    decode_vtx_impl_49,
+    decode_vtx_impl_50,
+    decode_vtx_impl_51,
+    decode_vtx_impl_52,
+    decode_vtx_impl_53,
+    decode_vtx_impl_54,
+    decode_vtx_impl_55,
+    decode_vtx_impl_56,
+    decode_vtx_impl_57,
+    decode_vtx_impl_58,
+    decode_vtx_impl_59,
+    decode_vtx_impl_60,
+    decode_vtx_impl_61,
+    decode_vtx_impl_62,
+    decode_vtx_impl_63
+};
 
 static int decode_user_clip(struct pvr2 *pvr2, struct pvr2_pkt *pkt) {
     uint32_t const *ta_fifo32 = (uint32_t const*)pvr2->ta.ta_fifo32;

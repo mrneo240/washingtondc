@@ -185,7 +185,11 @@ enum pvr2_hdr_tp {
     PVR2_HDR_QUAD
 };
 
+struct pvr2_pkt;
+
 struct pvr2_pkt_hdr {
+    void(*decode_vtx_func)(struct pvr2*, struct pvr2_pkt*);
+
     enum pvr2_hdr_tp tp;
 
     unsigned vtx_len;
