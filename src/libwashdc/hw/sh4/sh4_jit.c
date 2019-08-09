@@ -905,6 +905,31 @@ bool sh4_jit_movl_a_r0_rm_rn(Sh4 *sh4, struct sh4_jit_compile_ctx* ctx,
     return true;
 }
 
+// MOV.L Rm, @(disp, Rn)
+// 0001nnnnmmmmdddd
+bool sh4_jit_movl_rm_a_disp_rn(Sh4 *sh4, struct sh4_jit_compile_ctx* ctx,
+                               struct il_code_block *block, unsigned pc,
+                               struct InstOpcode const *op, cpu_inst_param inst) {
+    unsigned reg_src = ((inst & 0x00f0) >> 4) + SH4_REG_R0;
+    unsigned reg_dst = ((inst & 0x0f00) >> 8) + SH4_REG_R0;
+
+    unsigned slot_src = reg_slot(sh4, block, reg_src);
+    unsigned slot_dst = reg_slot(sh4, block, reg_dst);
+
+    uint32_t disp = (inst & 0xf) * 4;
+
+    unsigned slot_srcaddr = alloc_slot(block);
+
+    jit_set_slot(block, slot_srcaddr, disp);
+    jit_add(block, slot_dst, slot_srcaddr);
+    jit_write_32_slot(block, sh4->mem.map, slot_src, slot_srcaddr);
+
+    free_slot(block, slot_srcaddr);
+    jit_discard_slot(block, slot_srcaddr);
+
+    return true;
+}
+
 // MOV.L @Rm, Rn
 // 0110nnnnmmmm0010
 bool sh4_jit_movl_arm_rn(Sh4 *sh4, struct sh4_jit_compile_ctx* ctx,
