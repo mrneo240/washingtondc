@@ -35,14 +35,11 @@ void jit_disas_il(FILE *out, struct jit_inst const *inst, int idx) {
         fprintf(out, "%02X: JUMP <SLOT %02X, SLOT %02X>\n",
                 idx, immed->jump.jmp_addr_slot, immed->jump.jmp_hash_slot);
         break;
-    case JIT_JUMP_COND:
+    case JIT_CMOV:
         fprintf(out,
-                "%02X: JUMP_COND <SLOT %02X, SLOT %02X> IF "
-                "(<SLOT %02X> & 1) == %u ELSE <SLOT %02X, SLOT %02X>\n", idx,
-                immed->jump_cond.jmp_addr_slot, immed->jump_cond.jmp_hash_slot,
-                immed->jump_cond.flag_slot, immed->jump_cond.t_flag,
-                immed->jump_cond.alt_jmp_addr_slot,
-                immed->jump_cond.alt_jmp_hash_slot);
+                "%02X: CMOV <SLOT %02X>, <SLOT %02X> IF (<SLOT %02X> & 1) "
+                "== %u\n", idx, immed->cmov.src_slot, immed->cmov.dst_slot,
+                immed->cmov.flag_slot, immed->cmov.t_flag);
         break;
     case JIT_SET_SLOT:
         fprintf(out, "%02X: SET %08X, <SLOT %02X>\n", idx,

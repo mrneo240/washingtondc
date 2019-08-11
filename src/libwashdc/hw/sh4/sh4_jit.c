@@ -405,15 +405,12 @@ bool sh4_jit_bf(Sh4 *sh4, struct sh4_jit_compile_ctx* ctx,
     jit_set_slot(block, jmp_addr_slot, pc + jump_offs);
     jit_set_slot(block, alt_jmp_addr_slot, pc + 2);
 
+    jit_cmov(block, flag_slot, 1, alt_jmp_addr_slot, jmp_addr_slot);
     unsigned hash_slot = alloc_slot(block);
     sh4_jit_hash_slot(sh4, block, jmp_addr_slot, hash_slot);
-    unsigned alt_hash_slot = alloc_slot(block);
-    sh4_jit_hash_slot(sh4, block, alt_jmp_addr_slot, alt_hash_slot);
 
-    jit_jump_cond(block, flag_slot, jmp_addr_slot, alt_jmp_addr_slot,
-                  hash_slot, alt_hash_slot, 0);
+    jit_jump(block, jmp_addr_slot, hash_slot);
 
-    free_slot(block, alt_hash_slot);
     free_slot(block, hash_slot);
     free_slot(block, alt_jmp_addr_slot);
     free_slot(block, jmp_addr_slot);
@@ -438,15 +435,12 @@ bool sh4_jit_bt(Sh4 *sh4, struct sh4_jit_compile_ctx* ctx,
     jit_set_slot(block, jmp_addr_slot, pc + jump_offs);
     jit_set_slot(block, alt_jmp_addr_slot, pc + 2);
 
+    jit_cmov(block, flag_slot, 0, alt_jmp_addr_slot, jmp_addr_slot);
     unsigned hash_slot = alloc_slot(block);
     sh4_jit_hash_slot(sh4, block, jmp_addr_slot, hash_slot);
-    unsigned alt_hash_slot = alloc_slot(block);
-    sh4_jit_hash_slot(sh4, block, alt_jmp_addr_slot, alt_hash_slot);
 
-    jit_jump_cond(block, flag_slot, jmp_addr_slot, alt_jmp_addr_slot,
-                  hash_slot, alt_hash_slot, 1);
+    jit_jump(block, jmp_addr_slot, hash_slot);
 
-    free_slot(block, alt_hash_slot);
     free_slot(block, hash_slot);
     free_slot(block, alt_jmp_addr_slot);
     free_slot(block, jmp_addr_slot);
@@ -473,15 +467,12 @@ bool sh4_jit_bfs(Sh4 *sh4, struct sh4_jit_compile_ctx* ctx,
     jit_set_slot(block, jmp_addr_slot, pc + jump_offs);
     jit_set_slot(block, alt_jmp_addr_slot, pc + 4);
 
+    jit_cmov(block, flag_slot, 1, alt_jmp_addr_slot, jmp_addr_slot);
     unsigned hash_slot = alloc_slot(block);
     sh4_jit_hash_slot(sh4, block, jmp_addr_slot, hash_slot);
-    unsigned alt_hash_slot = alloc_slot(block);
-    sh4_jit_hash_slot(sh4, block, alt_jmp_addr_slot, alt_hash_slot);
 
-    jit_jump_cond(block, flag_slot, jmp_addr_slot, alt_jmp_addr_slot,
-                  hash_slot, alt_hash_slot, 0);
+    jit_jump(block, jmp_addr_slot, hash_slot);
 
-    free_slot(block, alt_hash_slot);
     free_slot(block, hash_slot);
     free_slot(block, alt_jmp_addr_slot);
     free_slot(block, jmp_addr_slot);
@@ -508,15 +499,12 @@ bool sh4_jit_bts(Sh4 *sh4, struct sh4_jit_compile_ctx* ctx,
     jit_set_slot(block, jmp_addr_slot, pc + jump_offs);
     jit_set_slot(block, alt_jmp_addr_slot, pc + 4);
 
+    jit_cmov(block, flag_slot, 0, alt_jmp_addr_slot, jmp_addr_slot);
     unsigned hash_slot = alloc_slot(block);
     sh4_jit_hash_slot(sh4, block, jmp_addr_slot, hash_slot);
-    unsigned alt_hash_slot = alloc_slot(block);
-    sh4_jit_hash_slot(sh4, block, alt_jmp_addr_slot, alt_hash_slot);
 
-    jit_jump_cond(block, flag_slot, jmp_addr_slot, alt_jmp_addr_slot,
-                  hash_slot, alt_hash_slot, 1);
+    jit_jump(block, jmp_addr_slot, hash_slot);
 
-    free_slot(block, alt_hash_slot);
     free_slot(block, hash_slot);
     free_slot(block, alt_jmp_addr_slot);
     free_slot(block, jmp_addr_slot);

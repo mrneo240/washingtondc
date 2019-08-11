@@ -48,23 +48,19 @@ void jit_jump(struct il_code_block *block, unsigned jmp_addr_slot,
     il_code_block_push_inst(block, &op);
 }
 
-void jit_jump_cond(struct il_code_block *block,
-                   unsigned flag_slot,
-                   unsigned jmp_addr_slot, unsigned alt_jmp_addr_slot,
-                   unsigned jmp_hash_slot, unsigned alt_jmp_hash_slot,
-                   unsigned t_val) {
+void jit_cmov(struct il_code_block *block, unsigned flag_slot,
+              unsigned t_flag, unsigned src_slot, unsigned dst_slot) {
     struct jit_inst op;
 
-    op.op = JIT_JUMP_COND;
-    op.immed.jump_cond.flag_slot = flag_slot;
-    op.immed.jump_cond.jmp_addr_slot = jmp_addr_slot;
-    op.immed.jump_cond.alt_jmp_addr_slot = alt_jmp_addr_slot;
-    op.immed.jump_cond.jmp_hash_slot = jmp_hash_slot;
-    op.immed.jump_cond.alt_jmp_hash_slot = alt_jmp_hash_slot;
-    op.immed.jump_cond.t_flag = t_val;
+    op.op = JIT_CMOV;
+    op.immed.cmov.flag_slot = flag_slot;
+    op.immed.cmov.t_flag = t_flag;
+    op.immed.cmov.src_slot = src_slot;
+    op.immed.cmov.dst_slot = dst_slot;
 
     il_code_block_push_inst(block, &op);
 }
+
 
 void jit_set_slot(struct il_code_block *block, unsigned slot_idx,
                   uint32_t new_val) {
@@ -477,12 +473,10 @@ bool jit_inst_is_read_slot(struct jit_inst const *inst, unsigned slot_no) {
     case JIT_OP_JUMP:
         return slot_no == immed->jump.jmp_addr_slot ||
             slot_no == immed->jump.jmp_hash_slot;
-    case JIT_JUMP_COND:
-        return slot_no == immed->jump_cond.flag_slot ||
-            slot_no == immed->jump_cond.jmp_addr_slot ||
-            slot_no == immed->jump_cond.alt_jmp_addr_slot ||
-            slot_no == immed->jump_cond.jmp_hash_slot ||
-            slot_no == immed->jump_cond.alt_jmp_hash_slot;
+    case JIT_CMOV:
+        return slot_no == immed->cmov.flag_slot ||
+            slot_no == immed->cmov.src_slot ||
+            slot_no == immed->cmov.dst_slot;
     case JIT_SET_SLOT:
         return false;
     case JIT_OP_CALL_FUNC:
@@ -586,7 +580,8 @@ void jit_inst_get_write_slots(struct jit_inst const *inst,
         break;
     case JIT_OP_JUMP:
         break;
-    case JIT_JUMP_COND:
+    case JIT_CMOV:
+        write_slots[0] = immed->cmov.dst_slot;
         break;
     case JIT_SET_SLOT:
         write_slots[0] = immed->set_slot.slot_idx;
