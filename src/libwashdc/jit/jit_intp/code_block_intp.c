@@ -81,6 +81,14 @@ reg32_t code_block_intp_exec(void *cpu, struct code_block_intp const *block) {
             }
             inst++;
             break;
+        case JIT_CSET:
+            if ((block->slots[inst->immed.cset.flag_slot] & 1) ==
+                inst->immed.cset.t_flag) {
+                block->slots[inst->immed.cset.dst_slot] =
+                    inst->immed.cset.src_val;
+            }
+            inst++;
+            break;
         case JIT_SET_SLOT:
             block->slots[inst->immed.set_slot.slot_idx] =
                 inst->immed.set_slot.new_val;

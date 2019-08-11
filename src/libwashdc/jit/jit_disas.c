@@ -41,6 +41,13 @@ void jit_disas_il(FILE *out, struct jit_inst const *inst, int idx) {
                 "== %u\n", idx, immed->cmov.src_slot, immed->cmov.dst_slot,
                 immed->cmov.flag_slot, immed->cmov.t_flag);
         break;
+    case JIT_CSET:
+        fprintf(out,
+                "%02X: CSET %08X, <SLOT %02X> IF (<SLOT %02X> & 1) "
+                "== %u\n", idx, (unsigned)immed->cset.src_val,
+                immed->cset.dst_slot, immed->cset.flag_slot,
+                immed->cset.t_flag);
+        break;
     case JIT_SET_SLOT:
         fprintf(out, "%02X: SET %08X, <SLOT %02X>\n", idx,
                 (unsigned)immed->set_slot.new_val, immed->set_slot.slot_idx);

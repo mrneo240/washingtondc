@@ -759,6 +759,36 @@ static void emit_cmov(struct code_block_x86_64 *blk,
     x86asm_lbl8_cleanup(&lbl);
 }
 
+static void emit_cset(struct code_block_x86_64 *blk,
+                      struct il_code_block const *il_blk,
+                      void *cpu, struct jit_inst const *inst) {
+    struct x86asm_lbl8 lbl;
+    x86asm_lbl8_init(&lbl);
+    uint32_t src_val = inst->immed.cset.src_val;
+    unsigned dst_slot = inst->immed.cset.dst_slot;
+    unsigned flag_slot = inst->immed.cset.flag_slot;
+
+    grab_slot(blk, il_blk, inst, flag_slot);
+
+    unsigned flag_reg = slots[flag_slot].reg_no;
+
+    x86asm_testl_imm32_reg32(1, flag_reg);
+    if (inst->immed.cset.t_flag)
+        x86asm_jz_lbl8(&lbl);
+    else
+        x86asm_jnz_lbl8(&lbl);
+
+    grab_slot(blk, il_blk, inst, dst_slot);
+    unsigned dst_reg = slots[dst_slot].reg_no;
+    x86asm_mov_imm32_reg32(src_val, dst_reg);
+    ungrab_slot(dst_slot);
+
+    x86asm_lbl8_define(&lbl);
+
+    ungrab_slot(flag_slot);
+    x86asm_lbl8_cleanup(&lbl);
+}
+
 // JIT_SET_REG implementation
 static void emit_set_slot(struct code_block_x86_64 *blk,
                           struct il_code_block const *il_blk,
@@ -1607,6 +1637,9 @@ void code_block_x86_64_compile(void *cpu, struct code_block_x86_64 *out,
             break;
         case JIT_CMOV:
             emit_cmov(out, il_blk, cpu, inst);
+            break;
+        case JIT_CSET:
+            emit_cset(out, il_blk, cpu, inst);
             break;
         case JIT_SET_SLOT:
             emit_set_slot(out, il_blk, cpu, inst);

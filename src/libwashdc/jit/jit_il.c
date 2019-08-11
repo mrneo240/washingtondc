@@ -61,6 +61,18 @@ void jit_cmov(struct il_code_block *block, unsigned flag_slot,
     il_code_block_push_inst(block, &op);
 }
 
+void jit_cset(struct il_code_block *block, unsigned flag_slot,
+              unsigned t_flag, uint32_t src_val, unsigned dst_slot) {
+    struct jit_inst op;
+
+    op.op = JIT_CSET;
+    op.immed.cset.flag_slot = flag_slot;
+    op.immed.cset.t_flag = t_flag;
+    op.immed.cset.src_val = src_val;
+    op.immed.cset.dst_slot = dst_slot;
+
+    il_code_block_push_inst(block, &op);
+}
 
 void jit_set_slot(struct il_code_block *block, unsigned slot_idx,
                   uint32_t new_val) {
@@ -477,6 +489,9 @@ bool jit_inst_is_read_slot(struct jit_inst const *inst, unsigned slot_no) {
         return slot_no == immed->cmov.flag_slot ||
             slot_no == immed->cmov.src_slot ||
             slot_no == immed->cmov.dst_slot;
+    case JIT_CSET:
+        return slot_no == immed->cset.flag_slot ||
+            slot_no == immed->cset.dst_slot;
     case JIT_SET_SLOT:
         return false;
     case JIT_OP_CALL_FUNC:
@@ -582,6 +597,9 @@ void jit_inst_get_write_slots(struct jit_inst const *inst,
         break;
     case JIT_CMOV:
         write_slots[0] = immed->cmov.dst_slot;
+        break;
+    case JIT_CSET:
+        write_slots[0] = immed->cset.dst_slot;
         break;
     case JIT_SET_SLOT:
         write_slots[0] = immed->set_slot.slot_idx;

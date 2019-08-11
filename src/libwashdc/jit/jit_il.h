@@ -46,6 +46,9 @@ enum jit_opcode {
     // conditionally move based on flag
     JIT_CMOV,
 
+    // conditionally set based on flag
+    JIT_CSET,
+
     // this will set a register to the given constant value
     JIT_SET_SLOT,
 
@@ -181,6 +184,13 @@ struct cmov_immed {
     unsigned flag_slot, t_flag;
 
     unsigned src_slot;
+    unsigned dst_slot;
+};
+
+struct cset_immed {
+    unsigned flag_slot, t_flag;
+
+    uint32_t src_val;
     unsigned dst_slot;
 };
 
@@ -372,6 +382,7 @@ union jit_immed {
     struct jit_fallback_immed fallback;
     struct jump_immed jump;
     struct cmov_immed cmov;
+    struct cset_immed cset;
     struct set_slot_immed set_slot;
     struct call_func_immed call_func;
     struct read_16_constaddr_immed read_16_constaddr;
@@ -431,6 +442,8 @@ void jit_fallback(struct il_code_block *block,
 void jit_jump(struct il_code_block *block, unsigned jmp_addr_slot, unsigned jmp_hash_slot);
 void jit_cmov(struct il_code_block *block, unsigned flag_slot,
               unsigned t_flag, unsigned src_slot, unsigned dst_slot);
+void jit_cset(struct il_code_block *block, unsigned flag_slot,
+              unsigned t_flag, uint32_t src_val, unsigned dst_slot);
 void jit_set_slot(struct il_code_block *block, unsigned slot_idx,
                   uint32_t new_val);
 void jit_call_func(struct il_code_block *block,
