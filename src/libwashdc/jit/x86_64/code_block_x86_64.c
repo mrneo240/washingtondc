@@ -728,29 +728,35 @@ static void emit_jump(struct code_block_x86_64 *blk,
 static void emit_cmov(struct code_block_x86_64 *blk,
                       struct il_code_block const *il_blk,
                       void *cpu, struct jit_inst const *inst) {
+    struct x86asm_lbl8 lbl;
+    x86asm_lbl8_init(&lbl);
     unsigned src_slot = inst->immed.cmov.src_slot;
     unsigned dst_slot = inst->immed.cmov.dst_slot;
     unsigned flag_slot = inst->immed.cmov.flag_slot;
 
-    grab_slot(blk, il_blk, inst, src_slot);
     grab_slot(blk, il_blk, inst, dst_slot);
     grab_slot(blk, il_blk, inst, flag_slot);
 
-    unsigned src_reg = slots[src_slot].reg_no;
     unsigned dst_reg = slots[dst_slot].reg_no;
     unsigned flag_reg = slots[flag_slot].reg_no;
 
     x86asm_testl_imm32_reg32(1, flag_reg);
+    if (inst->immed.cmov.t_flag)
+        x86asm_jz_lbl8(&lbl);
+    else
+        x86asm_jnz_lbl8(&lbl);
 
-    if (inst->immed.cmov.t_flag) {
-        x86asm_cmovnel_reg32_reg32(src_reg, dst_reg);
-    } else {
-        x86asm_cmovel_reg32_reg32(src_reg, dst_reg);
-    }
+    grab_slot(blk, il_blk, inst, src_slot);
+    unsigned src_reg = slots[src_slot].reg_no;
+    x86asm_mov_reg32_reg32(src_reg, dst_reg);
+    ungrab_slot(src_slot);
+
+    x86asm_lbl8_define(&lbl);
 
     ungrab_slot(flag_slot);
     ungrab_slot(dst_slot);
-    ungrab_slot(src_slot);
+
+    x86asm_lbl8_cleanup(&lbl);
 }
 
 // JIT_SET_REG implementation
