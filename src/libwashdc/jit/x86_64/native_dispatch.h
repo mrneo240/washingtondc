@@ -91,6 +91,21 @@ struct native_dispatch_meta {
     native_dispatch_entry_func entry;
 
     native_dispatch_hash_func hash_func; //user-specified
+
+    /*
+     * This is the default "invalid" code block that we fill out the
+     * code_cache_tbl with whenever the cache gets nuked.  The idea is that
+     * this will point to a fake code block which is equivalent to the slow-path
+     * from the native_dispatch code.  The point of all this is to avoid
+     * needing to check for NULL pointers in the code created by
+     * native_dispatch_emit; otherwise there needs to be an additional branch to
+     * make sure that whatever we grab from the code_cache_tbl actually points
+     * to a real code block.
+     */
+    void *trampoline;
+
+    // cache_entry that points to trampoline
+    struct cache_entry fake_cache_entry;
 };
 
 /*
