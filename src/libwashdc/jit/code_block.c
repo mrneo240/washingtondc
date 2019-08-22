@@ -102,12 +102,14 @@ static void il_code_block_add_slot(struct il_code_block *block) {
     memset(new_slot, 0, sizeof(*new_slot));
 }
 
-unsigned alloc_slot(struct il_code_block *block) {
+unsigned alloc_slot(struct il_code_block *block, enum slot_type type) {
     if (block->n_slots >= MAX_SLOTS)
         RAISE_ERROR(ERROR_OVERFLOW);
 
     unsigned slot_no = block->n_slots++;
     il_code_block_add_slot(block);
+
+    block->slots[slot_no].type = type;
 
     return slot_no;
 }

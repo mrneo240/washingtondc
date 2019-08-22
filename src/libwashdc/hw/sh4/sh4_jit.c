@@ -332,7 +332,7 @@ bool sh4_jit_rts(Sh4 *sh4, struct sh4_jit_compile_ctx* ctx,
     res_drain_all_regs(sh4, block);
     res_invalidate_all_regs(block);
 
-    unsigned hash_slot = alloc_slot(block);
+    unsigned hash_slot = alloc_slot(block, SLOT_TYPE_U32);
     if (ctx->dirty_fpscr) {
         unsigned fpscr_slot = reg_slot(sh4, block, SH4_REG_FPSCR);
         sh4_jit_hash_slot(sh4, block, jmp_addr_slot, hash_slot, fpscr_slot);
@@ -371,7 +371,7 @@ bool sh4_jit_rte(Sh4 *sh4, struct sh4_jit_compile_ctx* ctx,
     res_drain_all_regs(sh4, block);
     res_invalidate_all_regs(block);
 
-    unsigned hash_slot = alloc_slot(block);
+    unsigned hash_slot = alloc_slot(block, SLOT_TYPE_U32);
     if (ctx->dirty_fpscr) {
         unsigned fpscr_slot = reg_slot(sh4, block, SH4_REG_FPSCR);
         sh4_jit_hash_slot(sh4, block, jmp_addr_slot, hash_slot, fpscr_slot);
@@ -403,7 +403,7 @@ bool sh4_jit_braf_rn(Sh4 *sh4, struct sh4_jit_compile_ctx* ctx,
     res_drain_all_regs(sh4, block);
     res_invalidate_all_regs(block);
 
-    unsigned hash_slot = alloc_slot(block);
+    unsigned hash_slot = alloc_slot(block, SLOT_TYPE_U32);
     if (ctx->dirty_fpscr) {
         unsigned fpscr_slot = reg_slot(sh4, block, SH4_REG_FPSCR);
         sh4_jit_hash_slot(sh4, block, jmp_addr_slot, hash_slot, fpscr_slot);
@@ -438,7 +438,7 @@ bool sh4_jit_bsrf_rn(Sh4 *sh4, struct sh4_jit_compile_ctx* ctx,
     res_drain_all_regs(sh4, block);
     res_invalidate_all_regs(block);
 
-    unsigned hash_slot = alloc_slot(block);
+    unsigned hash_slot = alloc_slot(block, SLOT_TYPE_U32);
     if (ctx->dirty_fpscr) {
         unsigned fpscr_slot = reg_slot(sh4, block, SH4_REG_FPSCR);
         sh4_jit_hash_slot(sh4, block, addr_slot_no, hash_slot, fpscr_slot);
@@ -466,11 +466,11 @@ bool sh4_jit_bf(Sh4 *sh4, struct sh4_jit_compile_ctx* ctx,
     res_drain_all_regs(sh4, block);
     res_invalidate_all_regs(block);
 
-    unsigned jmp_addr_slot = alloc_slot(block);
+    unsigned jmp_addr_slot = alloc_slot(block, SLOT_TYPE_U32);
     jit_set_slot(block, jmp_addr_slot, pc + jump_offs);
 
     jit_cset(block, flag_slot, 1, pc+2, jmp_addr_slot);
-    unsigned hash_slot = alloc_slot(block);
+    unsigned hash_slot = alloc_slot(block, SLOT_TYPE_U32);
 
     sh4_jit_hash_slot_known_fpscr(sh4, ctx, block, jmp_addr_slot, hash_slot);
 
@@ -494,11 +494,11 @@ bool sh4_jit_bt(Sh4 *sh4, struct sh4_jit_compile_ctx* ctx,
     res_drain_all_regs(sh4, block);
     res_invalidate_all_regs(block);
 
-    unsigned jmp_addr_slot = alloc_slot(block);
+    unsigned jmp_addr_slot = alloc_slot(block, SLOT_TYPE_U32);
     jit_set_slot(block, jmp_addr_slot, pc + jump_offs);
 
     jit_cset(block, flag_slot, 0, pc + 2, jmp_addr_slot);
-    unsigned hash_slot = alloc_slot(block);
+    unsigned hash_slot = alloc_slot(block, SLOT_TYPE_U32);
     sh4_jit_hash_slot_known_fpscr(sh4, ctx, block, jmp_addr_slot, hash_slot);
 
     jit_jump(block, jmp_addr_slot, hash_slot);
@@ -523,11 +523,11 @@ bool sh4_jit_bfs(Sh4 *sh4, struct sh4_jit_compile_ctx* ctx,
     res_drain_all_regs(sh4, block);
     res_invalidate_all_regs(block);
 
-    unsigned jmp_addr_slot = alloc_slot(block);
+    unsigned jmp_addr_slot = alloc_slot(block, SLOT_TYPE_U32);
     jit_set_slot(block, jmp_addr_slot, pc + jump_offs);
 
     jit_cset(block, flag_slot, 1, pc + 4, jmp_addr_slot);
-    unsigned hash_slot = alloc_slot(block);
+    unsigned hash_slot = alloc_slot(block, SLOT_TYPE_U32);
     if (ctx->dirty_fpscr) {
         unsigned fpscr_slot = reg_slot(sh4, block, SH4_REG_FPSCR);
         sh4_jit_hash_slot(sh4, block, jmp_addr_slot, hash_slot, fpscr_slot);
@@ -558,11 +558,11 @@ bool sh4_jit_bts(Sh4 *sh4, struct sh4_jit_compile_ctx* ctx,
     res_drain_all_regs(sh4, block);
     res_invalidate_all_regs(block);
 
-    unsigned jmp_addr_slot = alloc_slot(block);
+    unsigned jmp_addr_slot = alloc_slot(block, SLOT_TYPE_U32);
     jit_set_slot(block, jmp_addr_slot, pc + jump_offs);
 
     jit_cset(block, flag_slot, 0, pc + 4, jmp_addr_slot);
-    unsigned hash_slot = alloc_slot(block);
+    unsigned hash_slot = alloc_slot(block, SLOT_TYPE_U32);
     if (ctx->dirty_fpscr) {
         unsigned fpscr_slot = reg_slot(sh4, block, SH4_REG_FPSCR);
         sh4_jit_hash_slot(sh4, block, jmp_addr_slot, hash_slot, fpscr_slot);
@@ -593,10 +593,10 @@ bool sh4_jit_bra(Sh4 *sh4, struct sh4_jit_compile_ctx* ctx,
     res_drain_all_regs(sh4, block);
     res_invalidate_all_regs(block);
 
-    unsigned addr_slot = alloc_slot(block);
+    unsigned addr_slot = alloc_slot(block, SLOT_TYPE_U32);
     jit_set_slot(block, addr_slot, pc + disp);
 
-    unsigned hash_slot = alloc_slot(block);
+    unsigned hash_slot = alloc_slot(block, SLOT_TYPE_U32);
     if (ctx->dirty_fpscr) {
         unsigned fpscr_slot = reg_slot(sh4, block, SH4_REG_FPSCR);
         sh4_jit_hash_slot(sh4, block, addr_slot, hash_slot, fpscr_slot);
@@ -629,10 +629,10 @@ bool sh4_jit_bsr(Sh4 *sh4, struct sh4_jit_compile_ctx* ctx,
     res_drain_all_regs(sh4, block);
     res_invalidate_all_regs(block);
 
-    unsigned addr_slot = alloc_slot(block);
+    unsigned addr_slot = alloc_slot(block, SLOT_TYPE_U32);
     jit_set_slot(block, addr_slot, pc + disp);
 
-    unsigned hash_slot = alloc_slot(block);
+    unsigned hash_slot = alloc_slot(block, SLOT_TYPE_U32);
     if (ctx->dirty_fpscr) {
         unsigned fpscr_slot = reg_slot(sh4, block, SH4_REG_FPSCR);
         sh4_jit_hash_slot(sh4, block, addr_slot, hash_slot, fpscr_slot);
@@ -662,7 +662,7 @@ bool sh4_jit_jmp_arn(Sh4 *sh4, struct sh4_jit_compile_ctx* ctx,
     res_drain_all_regs(sh4, block);
     res_invalidate_all_regs(block);
 
-    unsigned hash_slot = alloc_slot(block);
+    unsigned hash_slot = alloc_slot(block, SLOT_TYPE_U32);
     if (ctx->dirty_fpscr) {
         unsigned fpscr_slot = reg_slot(sh4, block, SH4_REG_FPSCR);
         sh4_jit_hash_slot(sh4, block, jmp_addr_slot, hash_slot, fpscr_slot);
@@ -695,7 +695,7 @@ bool sh4_jit_jsr_arn(Sh4 *sh4, struct sh4_jit_compile_ctx* ctx,
     res_drain_all_regs(sh4, block);
     res_invalidate_all_regs(block);
 
-    unsigned hash_slot = alloc_slot(block);
+    unsigned hash_slot = alloc_slot(block, SLOT_TYPE_U32);
     if (ctx->dirty_fpscr) {
         unsigned fpscr_slot = reg_slot(sh4, block, SH4_REG_FPSCR);
         sh4_jit_hash_slot(sh4, block, addr_slot_no, hash_slot, fpscr_slot);
@@ -1018,7 +1018,7 @@ bool sh4_jit_movl_a_r0_rm_rn(Sh4 *sh4, struct sh4_jit_compile_ctx* ctx,
     unsigned slot_dst = reg_slot(sh4, block, reg_dst);
     unsigned slot_r0 = reg_slot(sh4, block, SH4_REG_R0);
 
-    unsigned slot_srcaddr = alloc_slot(block);
+    unsigned slot_srcaddr = alloc_slot(block, SLOT_TYPE_U32);
 
     jit_mov(block, slot_src, slot_srcaddr);
     jit_add(block, slot_r0, slot_srcaddr);
@@ -1265,7 +1265,7 @@ bool sh4_jit_shar_rn(Sh4 *sh4, struct sh4_jit_compile_ctx* ctx,
                      struct InstOpcode const *op, cpu_inst_param inst) {
     unsigned reg_no = ((inst & 0x0f00) >> 8) + SH4_REG_R0;
     unsigned slot_no = reg_slot(sh4, block, reg_no);
-    unsigned tmp_cpy = alloc_slot(block);
+    unsigned tmp_cpy = alloc_slot(block, SLOT_TYPE_U32);
     unsigned sr_slot = reg_slot(sh4, block, SH4_REG_SR);
 
     // set the T-bit in SR from the shift-out.a
@@ -1291,7 +1291,7 @@ bool sh4_jit_shlr_rn(Sh4 *sh4, struct sh4_jit_compile_ctx* ctx,
                      struct InstOpcode const *op, cpu_inst_param inst) {
     unsigned reg_no = ((inst & 0x0f00) >> 8) + SH4_REG_R0;
     unsigned slot_no = reg_slot(sh4, block, reg_no);
-    unsigned tmp_cpy = alloc_slot(block);
+    unsigned tmp_cpy = alloc_slot(block, SLOT_TYPE_U32);
     unsigned sr_slot = reg_slot(sh4, block, SH4_REG_SR);
 
     // set the T-bit in SR from the shift-out.a
@@ -1317,7 +1317,7 @@ bool sh4_jit_shll_rn(Sh4 *sh4, struct sh4_jit_compile_ctx* ctx,
                      struct InstOpcode const *op, cpu_inst_param inst) {
     unsigned reg_no = ((inst & 0x0f00) >> 8) + SH4_REG_R0;
     unsigned slot_no = reg_slot(sh4, block, reg_no);
-    unsigned tmp_cpy = alloc_slot(block);
+    unsigned tmp_cpy = alloc_slot(block, SLOT_TYPE_U32);
     unsigned sr_slot = reg_slot(sh4, block, SH4_REG_SR);
 
     // set the T-bit in SR from the shift-out.
@@ -1418,7 +1418,7 @@ bool sh4_jit_swapw_rm_rn(Sh4 *sh4, struct sh4_jit_compile_ctx* ctx,
     unsigned slot_src = reg_slot(sh4, block, reg_src);
     unsigned slot_dst = reg_slot_noload(sh4, block, reg_dst);
 
-    unsigned slot_tmp = alloc_slot(block);
+    unsigned slot_tmp = alloc_slot(block, SLOT_TYPE_U32);
 
     jit_mov(block, slot_src, slot_tmp);
     jit_shlr(block, slot_tmp, 16);
@@ -1528,8 +1528,8 @@ bool sh4_jit_muluw_rm_rn(Sh4 *sh4, struct sh4_jit_compile_ctx* ctx,
     unsigned slot_rhs = reg_slot(sh4, block, reg_rhs);
     unsigned slot_macl = reg_slot(sh4, block, SH4_REG_MACL);
 
-    unsigned slot_lhs_16 = alloc_slot(block);
-    unsigned slot_rhs_16 = alloc_slot(block);
+    unsigned slot_lhs_16 = alloc_slot(block, SLOT_TYPE_U32);
+    unsigned slot_rhs_16 = alloc_slot(block, SLOT_TYPE_U32);
 
     /*
      * TODO: x86 has instructions that can move and zero-extend at the same
@@ -1652,7 +1652,7 @@ bool sh4_jit_dt_rn(Sh4 *sh4, struct sh4_jit_compile_ctx* ctx,
     unsigned reg_no = ((inst & 0x0f00) >> 8) + SH4_REG_R0;
     unsigned slot_no = reg_slot(sh4, block, reg_no);
     unsigned sr_slot = reg_slot(sh4, block, SH4_REG_SR);
-    unsigned tmp_slot = alloc_slot(block);
+    unsigned tmp_slot = alloc_slot(block, SLOT_TYPE_U32);
 
     jit_and_const32(block, sr_slot, ~1);
     jit_add_const32(block, slot_no, ~(uint32_t)0);
@@ -1761,10 +1761,10 @@ bool sh4_jit_lds_rm_fpscr(struct Sh4 *sh4, struct sh4_jit_compile_ctx* ctx,
          * since the code hash (which includes SZ and PR) just changed, we need to
          * handle this like a jmp instruction.
          */
-        unsigned jmp_addr_slot = alloc_slot(block);
+        unsigned jmp_addr_slot = alloc_slot(block, SLOT_TYPE_U32);
         jit_set_slot(block, jmp_addr_slot, pc + 2);
 
-        unsigned hash_slot = alloc_slot(block);
+        unsigned hash_slot = alloc_slot(block, SLOT_TYPE_U32);
         unsigned fpscr_slot = reg_slot(sh4, block, SH4_REG_FPSCR);
         sh4_jit_hash_slot(sh4, block, jmp_addr_slot, hash_slot, fpscr_slot);
 
@@ -1786,7 +1786,7 @@ bool sh4_jit_ldsl_armp_fpscr(struct Sh4 *sh4, struct sh4_jit_compile_ctx* ctx,
                              struct InstOpcode const *op, cpu_inst_param inst) {
     unsigned addr_reg = ((inst & 0x0f00) >> 8) + SH4_REG_R0;
     unsigned addr_slot = reg_slot(sh4, block, addr_reg);
-    unsigned new_val_slot = alloc_slot(block);
+    unsigned new_val_slot = alloc_slot(block, SLOT_TYPE_U32);
 
     jit_read_32_slot(block, sh4->mem.map, addr_slot, new_val_slot);
     jit_add_const32(block, addr_slot, 4);
@@ -1811,10 +1811,10 @@ bool sh4_jit_ldsl_armp_fpscr(struct Sh4 *sh4, struct sh4_jit_compile_ctx* ctx,
          * since the code hash (which includes SZ and PR) just changed, we need to
          * handle this like a jmp instruction.
          */
-        unsigned jmp_addr_slot = alloc_slot(block);
+        unsigned jmp_addr_slot = alloc_slot(block, SLOT_TYPE_U32);
         jit_set_slot(block, jmp_addr_slot, pc + 2);
 
-        unsigned hash_slot = alloc_slot(block);
+        unsigned hash_slot = alloc_slot(block, SLOT_TYPE_U32);
         unsigned fpscr_slot = reg_slot(sh4, block, SH4_REG_FPSCR);
         sh4_jit_hash_slot(sh4, block, jmp_addr_slot, hash_slot, fpscr_slot);
 
@@ -1859,10 +1859,10 @@ bool sh4_jit_fschg(struct Sh4 *sh4, struct sh4_jit_compile_ctx* ctx,
          * since the code hash (which includes SZ and PR) just changed, we need to
          * handle this like a jmp instruction.
          */
-        unsigned jmp_addr_slot = alloc_slot(block);
+        unsigned jmp_addr_slot = alloc_slot(block, SLOT_TYPE_U32);
         jit_set_slot(block, jmp_addr_slot, pc + 2);
 
-        unsigned hash_slot = alloc_slot(block);
+        unsigned hash_slot = alloc_slot(block, SLOT_TYPE_U32);
         sh4_jit_hash_slot_known_fpscr(sh4, ctx, block, jmp_addr_slot, hash_slot);
 
         jit_jump(block, jmp_addr_slot, hash_slot);
@@ -2186,7 +2186,7 @@ static unsigned reg_slot(Sh4 *sh4, struct il_code_block *block, unsigned reg_no)
 
     if (res->stat == REG_STATUS_SH4) {
         // need to load it into an unused slot
-        unsigned slot_no = alloc_slot(block);
+        unsigned slot_no = alloc_slot(block, SLOT_TYPE_U32);
         res_associate_reg(reg_no, slot_no);
         res->stat = REG_STATUS_SLOT_AND_SH4;
         res->slot_no = slot_no;
@@ -2201,7 +2201,7 @@ static unsigned reg_slot_noload(Sh4 *sh4,
                                 struct il_code_block *block, unsigned reg_no) {
     struct residency *res = reg_map + reg_no;
     if (res->stat == REG_STATUS_SH4) {
-        unsigned slot_no = alloc_slot(block);
+        unsigned slot_no = alloc_slot(block, SLOT_TYPE_U32);
         res_associate_reg(reg_no, slot_no);
         res->stat = REG_STATUS_SLOT;
         res->slot_no = slot_no;
@@ -2240,8 +2240,8 @@ static void sh4_jit_set_sr(void *ctx, uint32_t new_sr_val) {
 static void sh4_jit_hash_slot(struct Sh4 *sh4, struct il_code_block *block,
                               unsigned jmp_addr_slot, unsigned hash_slot,
                               unsigned fpscr_slot) {
-    unsigned pr_slot = alloc_slot(block);
-    unsigned sz_slot = alloc_slot(block);
+    unsigned pr_slot = alloc_slot(block, SLOT_TYPE_U32);
+    unsigned sz_slot = alloc_slot(block, SLOT_TYPE_U32);
 
     jit_mov(block, jmp_addr_slot, hash_slot);
     jit_and_const32(block, hash_slot, SH4_JIT_HASH_MASK);

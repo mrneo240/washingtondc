@@ -25,6 +25,21 @@
 
 struct il_code_block;
 
+enum intp_slot_type {
+    INTP_SLOT_U32,
+    INTP_SLOT_FLOAT,
+    INTP_SLOT_DOUBLE
+};
+
+struct intp_slot {
+    enum intp_slot_type type;
+    union {
+        uint32_t u32val;
+        float fval;
+        double dval;
+    };
+};
+
 /*
  * this is mostly identical to the il_code_block, but it's been prepared for
  * the interpreter
@@ -39,7 +54,7 @@ struct code_block_intp {
      * moving values between the sh4 registers and these il registers.
      */
     unsigned n_slots;
-    uint32_t *slots;
+    struct intp_slot *slots;
 };
 
 void code_block_intp_init(struct code_block_intp *block);
@@ -50,6 +65,6 @@ void code_block_intp_compile(void *cpu,
                              struct il_code_block const *il_blk,
                              unsigned cycle_count);
 
-reg32_t code_block_intp_exec(void *cpu, struct code_block_intp const *block);
+reg32_t code_block_intp_exec(void *cpu, struct code_block_intp *block);
 
 #endif

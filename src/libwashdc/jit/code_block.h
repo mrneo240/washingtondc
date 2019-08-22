@@ -38,15 +38,17 @@
 
 #include "jit_intp/code_block_intp.h"
 
-unsigned alloc_slot(struct il_code_block *block);
+enum slot_type {
+    SLOT_TYPE_U32,
+    SLOT_TYPE_FLOAT,
+    SLOT_TYPE_DOUBLE
+};
+
+unsigned alloc_slot(struct il_code_block *block, enum slot_type type);
 void free_slot(struct il_code_block *block, unsigned slot_no);
 
 struct il_slot {
-    /*
-     * This is only here because I'm not a big fan of empty structs, or the
-     * ambiguous malloc(0) behavior.
-     */
-    char useless_placeholder;
+    enum slot_type type;
 };
 
 struct il_code_block {
