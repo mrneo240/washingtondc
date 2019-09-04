@@ -28,6 +28,10 @@
 
 #include "hostfile.hpp"
 
+#if (defined(__MINGW32__))
+#define mkdir(A, B) mkdir(A)
+#endif
+
 static char const* consoles_dir(void) {
     static char dir_path[HOSTFILE_PATH_LEN];
     char const *the_cfg_dir = cfg_dir();

@@ -34,6 +34,10 @@
 
 #include "washdc/config_file.h"
 
+#if (defined(__MINGW32__))
+#define mkdir(A, B) mkdir(A)
+#endif
+
 #define CFG_NODE_KEY_LEN 256
 #define CFG_NODE_VAL_LEN 256
 

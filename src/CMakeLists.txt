@@ -35,11 +35,11 @@ set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 
 # i need this for strdup and clock_gettime on Debian for some unknown reason
-add_definitions(-D_POSIX_C_SOURCE=200809L)
+add_definitions(-D_POSIX_C_SOURCE=200809L -DGLEW_STATIC)
 
 # While I prefer to avoid using GNU-specific stuff when possible, in general
 # I don't give a damn about portability to Windows
-add_definitions(-D_GNU_SOURCE)
+#add_definitions(-D_GNU_SOURCE)
 
 find_package(OpenGL REQUIRED)
 
@@ -58,7 +58,7 @@ if (USE_LIBEVENT)
                         GIT_REPOSITORY https://github.com/libevent/libevent
                         GIT_TAG release-2.1.8-stable
                         INSTALL_DIR ${LIBEVENT_LIB_PATH}
-                        CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${LIBEVENT_LIB_PATH} -DEVENT__DISABLE_TESTS=On -DEVENT__DISABLE_REGRESS=On -DEVENT__DISABLE_BENCHMARK=On -DEVENT__DISABLE_OPENSSL=On -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+                        CMAKE_ARGS -DCMAKE_TOOLCHAIN_FILE=mingw-toolchain.cmake -DEVENT__LIBRARY_TYPE=STATIC -DCMAKE_INSTALL_PREFIX=${LIBEVENT_LIB_PATH} -DEVENT__DISABLE_SAMPLES=OFF -DEVENT__DISABLE_TESTS=On -DEVENT__DISABLE_REGRESS=On -DEVENT__DISABLE_BENCHMARK=On -DEVENT__DISABLE_OPENSSL=On -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
                         BUILD_IN_SOURCE 1)
 endif()
 

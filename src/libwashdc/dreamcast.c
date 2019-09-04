@@ -583,6 +583,10 @@ dreamcast_init(char const *gdi_path,
 #ifdef ENABLE_DEBUGGER
 do_init_win_gfx:
 #endif
+/*
+    cfg_get_int("win.external-res.x", &win_width);
+    cfg_get_int("win.external-res.y", &win_height);
+*/
     if (cfg_get_int("win.external-res.x", &win_width) != 0 || win_width <= 0)
         win_width = 640;
     if (cfg_get_int("win.external-res.y", &win_height) != 0 || win_height <= 0)
@@ -590,8 +594,11 @@ do_init_win_gfx:
 
     win_init(win_width, win_height);
     gfx_init(win_width, win_height);
-
-    dc_sound_init(snd_intf);
+    
+    /*if(win_width && win_height)
+        dc_sound_init(snd_intf);
+    else */
+        dc_sound_init(NULL);
 
     init_complete = true;
 

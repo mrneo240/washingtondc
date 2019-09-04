@@ -27,7 +27,11 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdbool.h>
+#if (defined(__MINGW32__))
+#include "mman.h"
+#else
 #include <sys/mman.h>
+#endif
 
 #include "log.h"
 #include "washdc/error.h"

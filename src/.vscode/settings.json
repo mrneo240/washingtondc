@@ -1,0 +1,14 @@
+{
+    "files.associations": {
+        "*.diff": "diff",
+        "sound.h": "c",
+        "err.h": "c",
+        "abi.h": "c",
+        "emit_x86_64.h": "c",
+        "mman.h": "c",
+        "windows.h": "c"
+    },
+    "C_Cpp.default.defines": [
+        "ENABLE_JIT_X86_64"
+    ]
+}

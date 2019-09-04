@@ -104,9 +104,16 @@ target_include_directories(png PRIVATE "${zlib_path}")
 set(glew_path "${CMAKE_SOURCE_DIR}/external/glew")
 add_library(glew "${glew_path}/src/glew.c"
                  "${glew_path}/include/GL/glew.h"
-                 "${glew_path}/include/GL/wglew.h"
-                 "${glew_path}/include/GL/glxew.h")
+                 "${glew_path}/include/GL/wglew.h")
 target_include_directories(glew PRIVATE "${glew_path}/include")
+
+if (WIN32)
+    # mman-win32
+set(mman-win32_path "${CMAKE_SOURCE_DIR}/external/mman-win32")
+add_library(mman-win32 "${mman-win32_path}/mman.c"
+                 "${mman-win32_path}/mman.h")
+target_include_directories(mman-win32 PRIVATE "${mman-win32_path}")
+endif (WIN32)
 
 set(include_dirs "${OPENGL_INCLUDE_DIR}"
                  "${CMAKE_SOURCE_DIR}/external/glew/include"
@@ -129,7 +136,6 @@ set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 
 add_subdirectory("${PROJECT_SOURCE_DIR}/external/glfw")
-add_subdirectory(external/portaudio)
 
 if (ENABLE_DEBUGGER)
     set(CAPSTONE_BUILD_TESTS OFF CACHE BOOL "" FORCE)

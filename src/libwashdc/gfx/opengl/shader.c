@@ -20,7 +20,18 @@
  *
  ******************************************************************************/
 
+#if !defined(__MINGW32__)
 #include <err.h>
+#else
+
+#define err(retval, ...) do { \
+    fprintf(stderr, __VA_ARGS__); \
+    fprintf(stderr, "Undefined error: %d\n", errno); \
+    exit(retval); \
+} while(0)
+
+#endif
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -73,7 +84,8 @@ void shader_load_vert_with_preamble(struct shader *out,
 
         glDeleteShader(vert_shader);
 
-        errx(1, "Error compiling shader: %s\n", shader_log);
+        fprintf(stderr, "Error compiling shader: %s\n", shader_log);
+        exit(1);
     }
 
     out->vert_shader = vert_shader;
@@ -105,7 +117,8 @@ void shader_load_frag_with_preamble(struct shader *out,
     if (!shader_success) {
         glGetShaderInfoLog(frag_shader, LOG_LEN_GLSL, NULL, shader_log);
 
-        errx(1, "Error compiling shader: %s\n", shader_log);
+        fprintf(stderr, "Error compiling shader: %s\n", shader_log);
+        exit(1);
     }
 
     out->frag_shader = frag_shader;
@@ -160,7 +173,8 @@ void shader_link(struct shader *out) {
 
         out->vert_shader = out->frag_shader = 0;
 
-        errx(1, "Error compiling shader: %s\n", shader_log);
+        fprintf(stderr, "Error compiling shader: %s\n", shader_log);
+        exit(1);
     }
 
     out->shader_prog_obj = shader_obj;

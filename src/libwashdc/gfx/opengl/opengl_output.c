@@ -26,7 +26,17 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#if !defined(__MINGW32__)
 #include <err.h>
+#else
+
+#define err(retval, ...) do { \
+    fprintf(stderr, __VA_ARGS__); \
+    fprintf(stderr, "Undefined error: %d\n", errno); \
+    exit(retval); \
+} while(0)
+
+#endif
 
 #define GL3_PROTOTYPES 1
 #include <GL/glew.h>

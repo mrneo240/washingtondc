@@ -33,6 +33,10 @@
 #define ABI_UNIX
 #endif
 
+#ifdef __MINGW32__
+#define ABI_MICROSOFT
+#endif
+
 /*
  * x86_64 System V ABI (for Unix systems).
  * Source:

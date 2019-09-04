@@ -24,6 +24,8 @@ project(washdc C)
 set(washdc_VERSION_MAJOR 0)
 set(washdc_VERSION_MINOR 1)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c11")
+#set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O0 -g -ggdb")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O2")
 
 
 if(NOT CMAKE_BUILD_TYPE)
@@ -31,12 +33,15 @@ if(NOT CMAKE_BUILD_TYPE)
        message("Setting CMAKE_BUILD_TYPE to Release by default")
 endif()
 
+
+
 # i need this for strdup and clock_gettime on Debian for some unknown reason
-add_definitions(-D_POSIX_C_SOURCE=200809L)
+#add_definitions(-D_POSIX_C_SOURCE=200809L -DGLEW_STATIC)
+add_definitions(-DGLEW_STATIC)
 
 # While I prefer to avoid using GNU-specific stuff when possible, in general
 # I don't give a damn about portability to Windows
-add_definitions(-D_GNU_SOURCE)
+#add_definitions(-D_GNU_SOURCE)
 
 find_package(OpenGL REQUIRED)
 

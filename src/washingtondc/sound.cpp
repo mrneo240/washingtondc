@@ -24,13 +24,81 @@
 #include <mutex>
 #include <condition_variable>
 
+#if 0
 #include <portaudio.h>
+#endif
 
 #include "washdc/error.h"
 #include "sound.hpp"
 #include "washdc/config_file.h"
 
 namespace sound {
+
+#if 1
+
+typedef double PaTime;
+typedef struct PaStreamCallbackTimeInfo{
+    PaTime inputBufferAdcTime;  
+    PaTime currentTime;         
+    PaTime outputBufferDacTime; 
+} PaStreamCallbackTimeInfo;
+
+typedef unsigned long PaStreamCallbackFlags;
+
+
+void init(void) {
+
+}
+
+void cleanup(void) {
+
+}
+
+static int snd_cb(const void *input, void *output,
+                  unsigned long n_frames,
+                  PaStreamCallbackTimeInfo const *ti,
+                  PaStreamCallbackFlags flags,
+                  void *argp) {
+                     printf("snd_cb\n");
+
+    return 0;
+}
+
+// left-shift by n-bits and saturate to INT32_MAX or INT32_MIN if necessary
+static inline int32_t sat_shift(int32_t in, unsigned n_bits) {
+    // outbits includes all bits shifted out AND the sign-bit
+    int32_t outbits = in >> (31 - n_bits);
+    if (outbits == 0 || outbits == -1)
+        return in << n_bits;
+    if (in < 0)
+        return INT32_MIN;
+    return INT32_MAX;
+}
+
+static washdc_sample_type scale_sample(washdc_sample_type sample) {
+    /*
+     * even though we use 32-bit int to store samples, we expect the emu
+     * core to submit samples that were initially 16-bit, so we have to
+     * scale them up a bit to compensate for the 16-bit to 32-bit conversion.
+     */
+    return sat_shift(sample, 8);
+}
+
+void submit_samples(washdc_sample_type *samples, unsigned count) {
+    
+}
+
+void mute(bool en_mute) {
+}
+
+bool is_muted(void) {
+    return true;
+}
+
+void set_sync_mode(enum sync_mode mode) {
+}
+
+#else 
 
 static DEF_ERROR_INT_ATTR(portaudio_error)
 static DEF_ERROR_STRING_ATTR(portaudio_error_text)
@@ -171,5 +239,7 @@ bool is_muted(void) {
 void set_sync_mode(enum sync_mode mode) {
     audio_sync_mode = mode;
 }
+
+#endif
 
 }

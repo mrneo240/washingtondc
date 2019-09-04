@@ -27,7 +27,14 @@
 #include <cstring>
 #include <string>
 #include <iostream>
+#include <dirent.h>
+#include <errno.h>
 #include <sys/stat.h>
+
+#ifdef __WIN32__
+#include <winsock2.h>
+#include <windows.h>
+#endif
 
 #include "washdc/washdc.h"
 #include "washdc/buildconfig.h"
@@ -37,6 +44,10 @@
 #include "washdc/hostfile.h"
 #include "hostfile.hpp"
 #include "console_config.hpp"
+
+#if (defined(__MINGW32__))
+#define mkdir(A, B) mkdir(A)
+#endif
 
 #ifdef USE_LIBEVENT
 #include "frontend_io/io_thread.hpp"
@@ -192,12 +203,13 @@ int main(int argc, char **argv) {
     bool launch_wizard = false;
     char const *dc_bios_path = NULL, *dc_flash_path = NULL;
     bool write_to_flash_mem = false;
+    bool null_video = false;
 
     create_cfg_dir();
     create_data_dir();
     create_screenshot_dir();
 
-    while ((opt = getopt(argc, argv, "w:b:f:c:s:m:d:u:g:htjxpnlv")) != -1) {
+    while ((opt = getopt(argc, argv, "w:b:f:c:s:m:d:u:g:yhtjxpnlv")) != -1) {
         switch (opt) {
         case 'g':
             enable_debugger = true;
@@ -207,6 +219,9 @@ int main(int argc, char **argv) {
         case 'd':
             boot_direct = true;
             path_ip_bin = optarg;
+            break;
+        case 'y':
+            null_video = true;
             break;
         case 'u':
             skip_ip_bin = true;
@@ -319,6 +334,12 @@ int main(int argc, char **argv) {
     enable_washdbg = false;
 #endif
 
+#ifdef __WIN32__
+   WORD versionWanted = MAKEWORD(1, 1);
+   WSADATA wsaData;
+   WSAStartup(versionWanted, &wsaData);
+#endif
+
     if (enable_interpreter && (enable_jit || enable_native_jit)) {
         fprintf(stderr, "ERROR: You can\'t use the interpreter and the JIT at "
                 "the same time, silly!\n");
@@ -393,19 +414,31 @@ int main(int argc, char **argv) {
         settings.path_rtc = console_get_rtc_path(console_name);
     settings.enable_serial = enable_serial;
     settings.path_gdi = path_gdi;
-    settings.win_intf = get_win_intf_glfw();
+    if(null_video){
+        settings.win_intf = get_win_intf_null();
+
+        settings.sndsrv = &snd_intf;
+
+        overlay_intf.overlay_draw = overlay::null_draw;
+        overlay_intf.overlay_set_fps = overlay::null_double;
+        overlay_intf.overlay_set_virt_fps = overlay::null_double;
+
+        settings.overlay_intf = &overlay_intf;
+    } else {
+        settings.win_intf = get_win_intf_glfw();
+
+        settings.sndsrv = &snd_intf;
+
+        overlay_intf.overlay_draw = overlay::draw;
+        overlay_intf.overlay_set_fps = overlay::set_fps;
+        overlay_intf.overlay_set_virt_fps = overlay::set_virt_fps;
+
+        settings.overlay_intf = &overlay_intf;
+    }
 
 #ifdef ENABLE_TCP_SERIAL
     settings.sersrv = &sersrv_intf;
 #endif
-
-    settings.sndsrv = &snd_intf;
-
-    overlay_intf.overlay_draw = overlay::draw;
-    overlay_intf.overlay_set_fps = overlay::set_fps;
-    overlay_intf.overlay_set_virt_fps = overlay::set_virt_fps;
-
-    settings.overlay_intf = &overlay_intf;
 
 #ifdef USE_LIBEVENT
     io::init();
@@ -413,7 +446,10 @@ int main(int argc, char **argv) {
 
     console = washdc_init(&settings);
 
-    overlay::init(enable_debugger || enable_washdbg);
+    if(null_video)
+        overlay::null_init(enable_debugger || enable_washdbg);
+    else
+        overlay::init(enable_debugger || enable_washdbg);
 
     washdc_run();
 
@@ -500,6 +536,10 @@ char const *screenshot_dir(void) {
 
 char const *data_dir(void) {
     static char path[HOSTFILE_PATH_LEN];
+    #ifdef __MINGW32__
+
+    #else 
+    static char path[HOSTFILE_PATH_LEN];
     char const *data_root = getenv("XDG_DATA_HOME");
     if (data_root) {
         strncpy(path, data_root, HOSTFILE_PATH_LEN);
@@ -515,11 +555,28 @@ char const *data_dir(void) {
         path_append(path, "/.local/share", HOSTFILE_PATH_LEN);
     }
     path_append(path, "washdc", HOSTFILE_PATH_LEN);
+    #endif
+   
+    DIR* dir = opendir(path);
+    if (dir) {
+        /* Directory exists. */
+        closedir(dir);
+    } else if (ENOENT == errno) {
+        /* Directory does not exist. */
+        return "./";
+    } else {
+        /* opendir() failed for some other reason. */
+        return "./";
+    }
+
     return path;
 }
 
 char const *cfg_dir(void) {
     static char path[HOSTFILE_PATH_LEN];
+    #ifdef __MINGW32__
+
+    #else 
     char const *config_root = getenv("XDG_CONFIG_HOME");
     if (config_root) {
         strncpy(path, config_root, HOSTFILE_PATH_LEN);
@@ -535,6 +592,20 @@ char const *cfg_dir(void) {
         path_append(path, "/.config", HOSTFILE_PATH_LEN);
     }
     path_append(path, "washdc", HOSTFILE_PATH_LEN);
+    #endif
+
+    DIR* dir = opendir(path);
+    if (dir) {
+        /* Directory exists. */
+        closedir(dir);
+    } else if (ENOENT == errno) {
+        /* Directory does not exist. */
+        return "./";
+    } else {
+        /* opendir() failed for some other reason. */
+        return "./";
+    }
+
     return path;
 }
 

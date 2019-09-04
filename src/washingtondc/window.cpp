@@ -20,7 +20,17 @@
  *
  ******************************************************************************/
 
+#if !defined(__MINGW32__)
 #include <err.h>
+#else
+
+#define err(retval, ...) do { \
+    fprintf(stderr, __VA_ARGS__); \
+    fprintf(stderr, "Undefined error: %d\n", errno); \
+    exit(retval); \
+} while(0)
+
+#endif
 #include <cctype>
 #include <cstdio>
 #include <cstring>
@@ -48,7 +58,8 @@ int win_glfw_get_height(void);
 
 enum win_mode {
     WIN_MODE_WINDOWED,
-    WIN_MODE_FULLSCREEN
+    WIN_MODE_FULLSCREEN, 
+    WIN_MODE_NULL
 };
 
 static unsigned res_x, res_y;
@@ -85,6 +96,26 @@ struct win_intf const* get_win_intf_glfw(void) {
     win_intf_glfw.update_title = win_glfw_update_title;
 
     return &win_intf_glfw;
+}
+
+void win_null_init(unsigned int x, unsigned int y){;}
+void win_null(){;}
+int win_null_get_width(){ return 0;}
+int win_null_get_height(){ return 0;}
+
+struct win_intf const* get_win_intf_null(void) {
+    static struct win_intf win_intf_null = { };
+
+    win_intf_null.init = win_null_init;
+    win_intf_null.cleanup = win_null;
+    win_intf_null.check_events = win_null;
+    win_intf_null.update = win_null;
+    win_intf_null.make_context_current = win_null;
+    win_intf_null.get_width = win_null_get_width;
+    win_intf_null.get_height = win_null_get_height;
+    win_intf_null.update_title = win_null;
+
+    return &win_intf_null;
 }
 
 static int bind_ctrl_from_cfg(char const *name, char const *cfg_node) {
@@ -135,7 +166,7 @@ static void win_glfw_init(unsigned width, unsigned height) {
 
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_COMPAT_PROFILE);
     glfwWindowHint(GLFW_RESIZABLE, GL_TRUE);
     glfwWindowHint(GLFW_DEPTH_BITS, 24);
     glfwWindowHint(GLFW_RED_BITS, vidmode->redBits);
@@ -170,8 +201,10 @@ static void win_glfw_init(unsigned width, unsigned height) {
         win = glfwCreateWindow(res_x, res_y, washdc_win_get_title(), NULL, NULL);
     }
 
-    if (!win)
-        errx(1, "unable to create window");
+    if (!win){
+        fprintf(stderr, "unable to create window");
+        exit(1);
+    }
 
     glfwSetWindowRefreshCallback(win, expose_callback);
     glfwSetFramebufferSizeCallback(win, resize_callback);

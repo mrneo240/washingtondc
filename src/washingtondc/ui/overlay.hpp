@@ -38,6 +38,10 @@ namespace overlay {
     void show(bool do_show);
     void set_fps(double fps);
     void set_virt_fps(double fps);
+    void null_init(bool enabled_debugger);
+    void null_draw();
+    void null_double(double fps);
+    void null_cleanup();
 }
 
 #endif

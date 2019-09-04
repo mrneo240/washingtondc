@@ -29,7 +29,12 @@
 #endif
 
 #include <cstdio>
-#include <sys/socket.h>
+#ifdef __WIN32__
+#include <winsock2.h>
+#include <windows.h>
+#else
+# include <sys/socket.h>
+#endif
 #include <unistd.h>
 #include <cstdlib>
 #include <pthread.h>

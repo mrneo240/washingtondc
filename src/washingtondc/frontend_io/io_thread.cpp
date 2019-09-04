@@ -20,7 +20,17 @@
  *
  ******************************************************************************/
 
+#if !defined(__MINGW32__)
 #include <err.h>
+#else
+
+#define err(retval, ...) do { \
+    fprintf(stderr, __VA_ARGS__); \
+    fprintf(stderr, "Undefined error: %d\n", errno); \
+    exit(retval); \
+} while(0)
+
+#endif
 #include <pthread.h>
 #include <cstdlib>
 #include <iostream>
@@ -71,18 +81,23 @@ void init() {
     int err_code;
     alive = true;
 
-    if (pthread_mutex_lock(&create_mutex) != 0)
+    if (pthread_mutex_lock(&create_mutex) != 0) {
+        err(errno, "Unable to pthread_mutex_lock");
         abort(); // TODO: error handling
+    }
 
     if ((err_code = pthread_create(&td, NULL, io_main, NULL)) != 0)
-        err(errno, "Unable to launch io thread");
+        err(errno, "Unable to pthread_create");
 
     if (pthread_cond_wait(&create_condition, &create_mutex) != 0) {
+        err(errno, "Unable to launch io thread");
             abort(); // TODO: error handling
     }
 
-    if (pthread_mutex_unlock(&create_mutex) != 0)
+    if (pthread_mutex_unlock(&create_mutex) != 0) {
+        err(errno, "Unable to pthread_mutex_unlock");
         abort(); // TODO: error handling
+    }
 }
 
 void cleanup() {
@@ -98,16 +113,24 @@ static void* io_main(void *arg) {
     if (pthread_mutex_lock(&create_mutex) != 0)
         abort(); // TODO: error handling
 
+    #ifdef __MINGW32__
+    evthread_use_windows_threads();
+    #else 
     evthread_use_pthreads();
+    #endif
 
     event_base = event_base_new();
-    if (!event_base)
-        errx(1, "event_base_new returned -1!");
+    if (!event_base) {
+        fprintf(stderr, "event_base_new returned -1!");
+        exit(1);
+    }
 
     work_event = event_new(event_base, -1, EV_PERSIST,
                            work_callback, NULL);
-    if (!work_event)
-        errx(1, "event_new returned NULL!");
+    if (!work_event) {
+        fprintf(stderr, "event_new returned NULL!");
+        exit(1);
+    }
 
 #ifdef ENABLE_TCP_SERIAL
     serial_server_init();

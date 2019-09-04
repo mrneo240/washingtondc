@@ -27,6 +27,10 @@ project(WashingtonDC CXX)
 set(WashingtonDC_VERSION_MAJOR 0)
 set(WashingtonDC_VERSION_MINOR 1)
 
+#set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O0 -ggdb")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O2")
+add_definitions(-DGLEW_STATIC)
+
 set(UI_SOURCE_DIR "${PROJECT_SOURCE_DIR}/ui")
 set(ui_sources "${UI_SOURCE_DIR}/overlay.hpp"
                "${UI_SOURCE_DIR}/overlay.cpp"
@@ -138,14 +142,14 @@ add_executable(washingtondc ${washingtondc_sources} ${ui_sources}
 
 set(washingtondc_libs "m"
                       "washdc"
-                      "rt"
                       "png"
                       "zlib"
                       "glfw"
                       "glew"
                       "${OPENGL_gl_LIBRARY}"
                       "pthread"
-                      "portaudio")
+                       )
+
 
 #if (USE_LIBEVENT)
     set(washingtondc_libs "${washingtondc_libs}" "${LIBEVENT_LIB_PATH}/lib/libevent.a")
@@ -155,6 +159,7 @@ if (need_capstone STREQUAL "TRUE")
     set(washingtondc_libs "${washingtondc_libs}" capstone-static)
 endif()
 
+
 target_include_directories(washingtondc PRIVATE "${WASHDC_SOURCE_DIR}/include"
                                                 "${CMAKE_SOURCE_DIR}/src/libwashdc/include"
                                                 "${PROJECT_SOURCE_DIR}/ui"
@@ -163,4 +168,5 @@ target_include_directories(washingtondc PRIVATE "${WASHDC_SOURCE_DIR}/include"
                                                 "${CMAKE_SOURCE_DIR}/external/capstone/include"
                                                 "${CMAKE_SOURCE_DIR}/external/glew/include"
                                                 "${LIBEVENT_LIB_PATH}/include")
-target_link_libraries(washingtondc "${washingtondc_libs}")
+
+target_link_libraries(washingtondc "${washingtondc_libs}" "mman-win32" -lgdi32 -lws2_32)

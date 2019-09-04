@@ -20,7 +20,17 @@
  *
  ******************************************************************************/
 
+#if !defined(__MINGW32__)
 #include <err.h>
+#else
+
+#define err(retval, ...) do { \
+    fprintf(stderr, __VA_ARGS__); \
+    fprintf(stderr, "Undefined error: %d\n", errno); \
+    exit(retval); \
+} while(0)
+
+#endif
 #include <atomic>
 #include <cstdio>
 #include <cstdlib>
@@ -93,6 +103,23 @@ static void on_check_tx_event(evutil_socket_t fd, short ev, void *arg);
 
 // drain the tx_ring
 static void drain_tx(void);
+
+#ifdef __WIN32__
+void vwarnx(const char *fmt, va_list args)
+{
+    fputs(": ", stderr);
+    if (fmt != NULL)
+        vfprintf(stderr, fmt, args);
+    putc('\n', stderr);
+}
+//   void warnx(const char *fmt, ...);
+void warnx(const char *fmt, ...) {
+    va_list argptr;
+    va_start(argptr, fmt);
+    vwarnx(fmt, argptr);
+    va_end(argptr);
+}
+#endif
 
 template <typename tp, unsigned log>
 class washdbg_ring {

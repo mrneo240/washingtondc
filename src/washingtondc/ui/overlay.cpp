@@ -539,6 +539,41 @@ static void overlay::show_tex_cache_win(void) {
     ImGui::End();
 }
 
+void overlay::null_init( bool enable_debugger) {
+    char const *exec_mode_str = cfg_get_node("exec.speed");
+    if (exec_mode_str == NULL || strcmp(exec_mode_str, "full") == 0) {
+        exec_opt = EXEC_OPT_100P;
+        sound::set_sync_mode(sound::SYNC_MODE_NORM);
+    } else if (strcmp(exec_mode_str, "unlimited") == 0) {
+        exec_opt = EXEC_OPT_UNLIMITED;
+        sound::set_sync_mode(sound::SYNC_MODE_UNLIMITED);
+    } else if (strcmp(exec_mode_str, "pause") == 0) {
+        exec_opt = EXEC_OPT_PAUSED;
+        do_pause();
+    } else {
+        exec_opt = EXEC_OPT_100P;
+        sound::set_sync_mode(sound::SYNC_MODE_NORM);
+        std::cerr << "Unrecognized execution mode \"" <<
+            exec_mode_str << "\"" << std::endl;
+    }
+
+    n_chans = console->snddev.n_channels;
+    sndchan_mute = new bool[n_chans];
+    std::fill(sndchan_mute, sndchan_mute + n_chans, false);
+
+    en_perf_win = true;
+    not_hidden = false;
+    have_debugger = enable_debugger;
+}
+
+void overlay::null_draw() {
+
+}
+
+void overlay::null_double(double fps) {
+
+}
+
 void overlay::set_fps(double fps) {
     framerate = fps;
 }

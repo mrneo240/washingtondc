@@ -26,6 +26,7 @@
 #include "washdc/win.h"
 
 struct win_intf const* get_win_intf_glfw(void);
+struct win_intf const* get_win_intf_null(void);
 
 int win_glfw_get_width(void);
 int win_glfw_get_height(void);

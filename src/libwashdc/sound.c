@@ -27,15 +27,18 @@
 struct washdc_sound_intf const *sndsrv;
 
 void dc_sound_init(struct washdc_sound_intf const *intf) {
-    sndsrv = intf;
-    sndsrv->init();
+    sndsrv = NULL;//intf;
+    //if(sndsrv)
+    //   sndsrv->init();
 }
 
 void dc_sound_cleanup(void) {
-    sndsrv->cleanup();
+    //if(sndsrv)
+    //    sndsrv->cleanup();
     sndsrv = NULL;
 }
 
 void dc_submit_sound_samples(washdc_sample_type *samples, unsigned count) {
-    sndsrv->submit_samples(samples, count);
+    //if(sndsrv)
+    //    sndsrv->submit_samples(samples, count);
 }
